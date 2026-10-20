@@ -1,0 +1,44 @@
+# Doc 3 Bloque 5 / Doc 7 Bloque 4 — Integración continua de la app. Corre en
+# cada Pull Request y en cada push a main: formato, análisis estático y tests.
+# El build del AAB y la distribución a Google Play son manuales y van aparte
+# (Doc 3: nunca automáticos en cada corrida).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  calidad:
+    name: Formato, análisis y tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          # Misma versión que el entorno de desarrollo, fijada a propósito.
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      # Los *.g.dart no se versionan: se generan acá, como en local.
+      - name: Generar código (Riverpod)
+        run: dart run build_runner build -d
+
+      - name: Formato (sin autocorregir)
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Análisis estático
+        run: flutter analyze --fatal-infos
+
+      - name: Tests
+        run: flutter test
