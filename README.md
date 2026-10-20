@@ -32,7 +32,8 @@ Se adelanta el motor de sincronización al Sprint 0, respecto del Doc 11: es la 
 | **F0** | Esqueleto: proyecto Android, lints, Riverpod, GoRouter con el shell de 4 destinos, tema del Doc 6, CI | ✅ |
 | **F1** | Infraestructura compartida: ambiente, cliente HTTP con el formato de error del Doc 5 y refresh de token, almacenamiento seguro, Drift base, VOs `Monto` y `Telefono` | ✅ |
 | **F2** | Sesión: puerto de identidad (Google/Firebase) con doble, login/logout, redirect | ✅ |
-| **F3** | Motor de sync: tablas espejo + Outbox, pull (paginación, solape, tombstones, `410`), push con reintentos, numeración Hi/Lo | ⏳ |
+| **F3a** | Motor de sync, bajada: tablas espejo de las 9 colecciones, pull (paginación, solape, tombstones, `410`) | ✅ |
+| **F3b** | Motor de sync, subida: Outbox con reintentos y apartado de rechazos, numeración Hi/Lo, `syncStatusProvider`, pendientes → cierre de sesión | ⏳ |
 
 **Decisiones del usuario para el motor de sync** (huecos del Doc 7):
 - Una operación de la Outbox con **error permanente** (`422`/`409`/`404`) se **aparta** a una lista de "no sincronizadas" y la cola sigue; la app marca el encargo afectado.
@@ -73,3 +74,19 @@ Se adelanta el motor de sincronización al Sprint 0, respecto del Doc 11: es la 
 - **Notificaciones (FCM)**: el token se registra (`POST /dispositivos/fcm-token`) al entrar, en cada arranque con sesión (Firebase pudo rotarlo con la app cerrada) y en cada rotación. Es *best effort*: un fallo —sin red, o `409 FCM_TOKEN_EN_USO`— no impide entrar y se reintenta en el próximo arranque. Al cerrar sesión **no** se llama a `DELETE /dispositivos/fcm-token`: `/auth/logout` ya borra la fila del dispositivo, token incluido (Doc 5). El Doc 7 (Bloque 3, punto 4) pedía ambas llamadas; queda por enmendar.
 
 **Deuda técnica — sin proyecto Firebase.** `ProveedorIdentidad` y `TokenNotificaciones` son puertos con implementaciones vacías (`ProveedorIdentidadNoConfigurado`, que hace que el login diga "todavía no está configurado", y `SinNotificaciones`). Las reales (`google_sign_in` + `firebase_auth`, `firebase_messaging`) entran con el `google-services.json`: agregar esos paquetes antes rompería el arranque, porque Firebase falla al inicializarse sin su configuración. Hasta entonces la app no puede entrar contra un backend real; todo el flujo está probado con dobles (`test/helpers/entorno_prueba.dart`).
+
+## F3a — Motor de sync, bajada (`lib/shared/sync/`, `lib/shared/infrastructure/db/tablas.dart`)
+
+- **Tablas espejo** de las 9 colecciones de `/sync`, con las columnas que el backend proyecta. Dinero en **céntimos**; fechas de hecho como texto `AAAA-MM-DD` (sin hora ni zona: ninguna conversión las corre un día); `creado_en`/`actualizado_en` como el texto ISO del servidor, que se compara como texto sin perder milisegundos. Índices por cada llave padre.
+- **Sin llaves foráneas declaradas, a propósito:** `/sync` pagina cada colección por separado, así que la página 1 puede traer un trabajo cuyo encargo llega en la página 2. Una FK rechazaría ese hijo y la sincronización no avanzaría nunca. La integridad es del servidor; al terminar de paginar la copia local queda completa.
+- **`Bajada.bajar()`**, con las reglas del Doc 5:
+  - El próximo `since` es el `servidor_timestamp`, guardado **en la misma transacción** que los cambios de su página: si la app muere a mitad, o entró la página entera y avanzó la marca, o nada. Una fila inválida descarta su página completa.
+  - Las filas repetidas por el solape se aplican sin efecto (upsert por id), y **una versión más vieja nunca pisa una más nueva** (el upsert solo escribe si `actualizado_en` no retrocede).
+  - Un tombstone borra la fila local, notificando a los streams de Drift: la UI se refresca sola.
+  - `has_more` → página siguiente con la marca recibida. Si la marca no avanza (el límite conocido del backend: 500 filas con el mismo `actualizado_en`), **falla a la vista en vez de girar en vacío**.
+  - `410` → descarta lo sincronizado **salvo las filas con cambios pendientes** y rehace todo sin `since`, en una transacción con el borrado de la marca: si la app muere en medio, la próxima bajada arranca de cero igual. Un segundo `410` seguido es un error, no un bucle.
+  - Las filas con cambios pendientes en la Outbox **no se tocan** (decisión del usuario); la marca avanza igual. El puerto `IdsProtegidos` hoy devuelve vacío y F3b lo conecta a la Outbox.
+  - Dos llamadas simultáneas comparten la misma bajada.
+- **Esquema editable hasta el primer release:** como ningún teléfono tiene la app, `schemaVersion` sigue en 1 y las tablas se agregaron en el lugar. Desde el primer build en Google Play, cada cambio es una versión con su paso de migración.
+
+**Para F3b:** una fila protegida que se saltó vuelve a bajar sola cuando su push llega al servidor (cambia su `actualizado_en`). Pero si el push se **aparta** por un rechazo permanente, el servidor no cambió y esa fila no volverá a bajar: F3b tiene que pedirla de nuevo (`GET /encargos/{id}`) al apartarla.

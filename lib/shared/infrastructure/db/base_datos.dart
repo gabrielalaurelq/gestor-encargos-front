@@ -1,6 +1,10 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import 'tablas.dart';
+
+export 'tablas.dart';
+
 part 'base_datos.g.dart';
 
 /// Pares clave-valor del propio dispositivo que no son datos del negocio: la
@@ -14,8 +18,14 @@ class Metadatos extends Table {
   Set<Column<Object>> get primaryKey => {clave};
 }
 
-/// La base local (Doc 3: Drift es la fuente de verdad del dispositivo). Las
-/// tablas espejo de las 9 colecciones de `/sync` y la Outbox llegan en F3.
+/// La base local (Doc 3: Drift es la fuente de verdad del dispositivo): las
+/// tablas espejo de las 9 colecciones de `/sync` (`tablas.dart`) y los
+/// metadatos del dispositivo. La Outbox llega en F3b.
+///
+/// **Esquema editable hasta el primer release.** Mientras ningún teléfono
+/// tenga la app instalada, el esquema se cambia en el lugar y [schemaVersion]
+/// sigue en 1: no hay base vieja que migrar. Desde el primer build publicado en
+/// Google Play, cada cambio es una versión nueva.
 ///
 /// **Migraciones:** cada cambio de esquema sube [schemaVersion] y agrega su
 /// paso en `onUpgrade`. Un teléfono puede saltarse varias versiones de la app
@@ -23,7 +33,20 @@ class Metadatos extends Table {
 /// cadena desde la versión que tenga, nunca "de la anterior a la actual". Se
 /// generan con `dart run drift_dev make-migrations`, que además produce tests
 /// que verifican cada paso contra el esquema real de esa versión.
-@DriftDatabase(tables: [Metadatos])
+@DriftDatabase(
+  tables: [
+    Metadatos,
+    Clientes,
+    Servicios,
+    Encargos,
+    ObjetosRecibidos,
+    Trabajos,
+    Materiales,
+    Pagos,
+    Notas,
+    Fotos,
+  ],
+)
 class BaseDatos extends _$BaseDatos {
   BaseDatos([QueryExecutor? ejecutor]) : super(ejecutor ?? _abrir());
 
@@ -36,8 +59,9 @@ class BaseDatos extends _$BaseDatos {
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     beforeOpen: (_) async {
-      // SQLite trae las llaves foráneas **apagadas** por defecto: sin esto,
-      // las FK que declaren las tablas de F3 serían decorativas.
+      // SQLite trae las llaves foráneas **apagadas** por defecto. Las tablas
+      // espejo no declaran FK (ver `tablas.dart`), pero una tabla propia del
+      // dispositivo que sí lo haga (la Outbox) no debe tenerlas decorativas.
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
