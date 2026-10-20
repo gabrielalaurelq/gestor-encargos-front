@@ -19,6 +19,17 @@ import 'package:drift/drift.dart';
 // - **Sin `eliminado_en`**: un tombstone borra la fila local (la UI nunca
 //   muestra lo borrado).
 
+/// `actualizado_en` de una fila creada en el teléfono, que el servidor todavía
+/// no devolvió: menor que cualquier marca real.
+///
+/// **Las escrituras locales no adelantan `actualizado_en`.** Esa columna es
+/// "la versión del servidor que tengo", y el pull solo acepta una igual o más
+/// nueva. Si guardara la hora del teléfono y el reloj fuera adelantado, la
+/// versión del servidor quedaría rechazada para siempre. Lo que hace ganar a
+/// un cambio local mientras no sube es el Outbox (`idsProtegidos`), no esta
+/// marca: una edición conserva la que tenía y una alta lleva esta.
+const sinVersionDelServidor = '0000-01-01T00:00:00.000Z';
+
 mixin _Sincronizada on Table {
   TextColumn get id => text()();
   TextColumn get creadoEn => text()();

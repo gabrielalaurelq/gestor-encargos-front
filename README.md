@@ -101,3 +101,22 @@ Se adelanta el motor de sincronización al Sprint 0, respecto del Doc 11: es la 
 - **`cambiosPendientesProvider`** cuenta ahora la Outbox real: el cierre de sesión de F2 ya bloquea con cambios sin enviar. Las apartadas no cuentan —no van a subir—, si no, un rechazo sin resolver impediría cerrar sesión para siempre.
 
 **Documentación:** lo decidido al implementar F2-F3b quedó recogido en el Doc 7 v1.1 (Bloques 2 y 3) y el Doc 11 v1.1 (Sprint 0 partido en bloques, riesgos nuevos).
+
+## Sprint 1 — plan aprobado (2026-10-20)
+
+Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va primero: es el módulo más simple y estrena el patrón de escritura que repetirán los demás.
+
+| Bloque | Contenido | Estado |
+|---|---|---|
+| **S1a** | Catálogo de servicios: lista, alta, cambio de precio, desactivar/reactivar | ✅ |
+| **S1b** | Clientes: lista con búsqueda local en tiempo real, alta y edición con teléfono peruano o internacional | — |
+| **S1c** | Ficha de cliente: datos, resumen del historial y encargos, calculados en local | — |
+
+## S1a — Catálogo de servicios (`lib/features/servicios/`)
+
+- **El patrón de escritura de todas las features:** el repositorio escribe en Drift y encola su operación **en la misma transacción**; la pantalla lee una consulta reactiva y nunca espera a la red.
+- **Las escrituras locales no adelantan `actualizado_en`** (`sinVersionDelServidor`, en `tablas.dart`): esa columna es la versión del servidor que tiene el teléfono. Con la hora del teléfono, un reloj adelantado haría que el pull rechace para siempre la versión del servidor. Lo que hace ganar a un cambio local mientras no sube es la Outbox, no la marca.
+- Reglas y códigos del backend validados antes de guardar (nombre no vacío; precio ≥ 0, el cero vale), para que un rechazo del servidor —que la Outbox apartaría— no dependa del usuario. El **nombre no se edita** (el `PATCH` del Doc 5 no lo admite): la hoja lo dice y propone desactivar y crear otro.
+- **Desactivados aparte, plegados y reactivables** (decisión del usuario). Desactivar no pide confirmación: el aviso ofrece "Deshacer".
+- El campo de precio no acepta signo ni coma: la coma es separador de miles en el formato peruano y sería ambigua.
+- Tests de pantalla contra Drift en memoria. Gotcha: Drift suelta sus consultas reactivas con un timer de 0, así que cada test desmonta la pantalla y avanza 1 ms antes de terminar.

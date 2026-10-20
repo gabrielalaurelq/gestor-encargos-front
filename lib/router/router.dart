@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../features/servicios/presentation/pantalla_catalogo.dart';
 import '../features/sesion/application/sesion.dart';
 import '../features/sesion/domain/estado_sesion.dart';
 import '../features/sesion/presentation/pantalla_ajustes.dart';
@@ -124,14 +125,7 @@ GoRouter router(Ref ref) {
                       sprint: 'Sprint 6',
                     ),
                   ),
-                  GoRoute(
-                    path: 'catalogo-servicios',
-                    builder: (_, _) => const PantallaPendiente(
-                      titulo: 'Catálogo de servicios',
-                      icono: Icons.list_alt,
-                      sprint: 'Sprint 1',
-                    ),
-                  ),
+                  GoRoute(path: 'catalogo-servicios', builder: (_, _) => const PantallaCatalogo()),
                   GoRoute(path: 'ajustes', builder: (_, _) => const PantallaAjustes()),
                 ],
               ),
