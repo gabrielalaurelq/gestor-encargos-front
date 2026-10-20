@@ -37,6 +37,22 @@ void main() {
       expect(entorno.backend.peticiones, isEmpty);
     });
 
+    test('con tokens → arranca una sincronización', () async {
+      crear(EntornoPrueba.conSesion());
+
+      await sesionCargada(contenedor);
+
+      expect(entorno.motor.sincronizaciones, 1);
+    });
+
+    test('sin tokens → no sincroniza', () async {
+      crear(EntornoPrueba());
+
+      await sesionCargada(contenedor);
+
+      expect(entorno.motor.sincronizaciones, 0);
+    });
+
     test(
       'con tokens → re-registra el token de notificaciones (pudo rotar con la app cerrada)',
       () async {
@@ -64,6 +80,15 @@ void main() {
       expect(entorno.backend.peticiones.single.cuerpo, {'id_token': 'id-token-google'});
       expect((await entorno.tokens.leer())!.refresh, 'refresh-1');
       expect(contenedor.read(sesionProvider), EstadoSesion.iniciada);
+    });
+
+    test('al entrar sincroniza (reserva números y trae los datos del negocio)', () async {
+      entorno.loginAceptado();
+      await sesionCargada(contenedor);
+
+      await sesion().iniciarSesion();
+
+      expect(entorno.motor.sincronizaciones, 1);
     });
 
     test('registra el token de notificaciones justo después (Doc 5)', () async {

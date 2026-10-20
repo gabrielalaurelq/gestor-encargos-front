@@ -20,7 +20,7 @@ class Metadatos extends Table {
 
 /// La base local (Doc 3: Drift es la fuente de verdad del dispositivo): las
 /// tablas espejo de las 9 colecciones de `/sync` (`tablas.dart`) y los
-/// metadatos del dispositivo. La Outbox llega en F3b.
+/// tablas propias del dispositivo: la Outbox y los metadatos.
 ///
 /// **Esquema editable hasta el primer release.** Mientras ningún teléfono
 /// tenga la app instalada, el esquema se cambia en el lugar y [schemaVersion]
@@ -45,6 +45,7 @@ class Metadatos extends Table {
     Pagos,
     Notas,
     Fotos,
+    OperacionesOutbox,
   ],
 )
 class BaseDatos extends _$BaseDatos {
@@ -59,9 +60,9 @@ class BaseDatos extends _$BaseDatos {
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     beforeOpen: (_) async {
-      // SQLite trae las llaves foráneas **apagadas** por defecto. Las tablas
-      // espejo no declaran FK (ver `tablas.dart`), pero una tabla propia del
-      // dispositivo que sí lo haga (la Outbox) no debe tenerlas decorativas.
+      // SQLite trae las llaves foráneas **apagadas** por defecto. Hoy ninguna
+      // tabla declara FK (ver `tablas.dart`); queda encendido para que la
+      // primera que lo haga no las tenga decorativas.
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );

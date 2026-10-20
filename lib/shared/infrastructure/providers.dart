@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'auth/almacen_tokens.dart';
 import 'auth/aviso_sesion.dart';
+import 'conectividad.dart';
 import 'config/ambiente.dart';
 import 'db/base_datos.dart';
 import 'http/cliente_api.dart';
@@ -24,6 +25,9 @@ AvisoSesion avisoSesion(Ref ref) {
   ref.onDispose(aviso.cerrar);
   return aviso;
 }
+
+@Riverpod(keepAlive: true)
+Conectividad conectividad(Ref ref) => ConectividadDispositivo();
 
 @Riverpod(keepAlive: true)
 BaseDatos baseDatos(Ref ref) {

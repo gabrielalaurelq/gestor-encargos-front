@@ -12,7 +12,8 @@ import 'package:gestor_encargos/shared/infrastructure/config/ambiente.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
 import 'package:gestor_encargos/shared/infrastructure/http/cliente_api.dart';
 import 'package:gestor_encargos/shared/infrastructure/providers.dart';
-import 'package:gestor_encargos/shared/sync/cambios_pendientes.dart';
+import 'package:gestor_encargos/shared/sync/motor_sync.dart';
+import 'package:gestor_encargos/shared/sync/providers.dart';
 
 import 'adaptador_falso.dart';
 
@@ -46,6 +47,24 @@ class NotificacionesFalsas implements TokenNotificaciones {
   Stream<String> get rotaciones => _rotaciones.stream;
 }
 
+/// Motor de sync que solo cuenta cuántas veces se le pidió sincronizar: los
+/// tests de sesión y de pantallas no prueban el motor (eso es `shared/sync/`).
+class MotorSyncFalso implements MotorSync {
+  int sincronizaciones = 0;
+
+  @override
+  Future<void> sincronizar() async => sincronizaciones++;
+
+  @override
+  EstadoSync get estado => const EstadoSync();
+
+  @override
+  Stream<EstadoSync> get estados => const Stream.empty();
+
+  @override
+  void cerrar() {}
+}
+
 /// Todo lo que la app toca hacia afuera, reemplazado por dobles: backend,
 /// almacenamiento seguro, SQLite en memoria, Google y Firebase Messaging.
 class EntornoPrueba {
@@ -61,6 +80,7 @@ class EntornoPrueba {
   final base = BaseDatos(NativeDatabase.memory());
   final identidad = IdentidadFalsa();
   final notificaciones = NotificacionesFalsas();
+  final motor = MotorSyncFalso();
   int pendientes = 0;
 
   List<Override> get overrides => [
@@ -77,6 +97,7 @@ class EntornoPrueba {
     proveedorIdentidadProvider.overrideWithValue(identidad),
     tokenNotificacionesProvider.overrideWithValue(notificaciones),
     cambiosPendientesProvider.overrideWith((_) => Stream.value(pendientes)),
+    motorSyncProvider.overrideWithValue(motor),
   ];
 
   /// `POST /auth/login` responde como el backend real para [negocioId].

@@ -1,13 +1,9 @@
 import 'package:drift/drift.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../infrastructure/db/base_datos.dart';
 import '../infrastructure/http/cliente_api.dart';
 import '../infrastructure/http/error_api.dart';
-import '../infrastructure/providers.dart';
 import 'colecciones.dart';
-
-part 'bajada.g.dart';
 
 /// Ids de filas con operaciones pendientes en la Outbox. El pull **no las
 /// toca** (decisión del usuario, Sprint 0): lo local pendiente gana hasta que
@@ -164,7 +160,3 @@ class Bajada {
     });
   }
 }
-
-@Riverpod(keepAlive: true)
-Bajada bajada(Ref ref) =>
-    Bajada(api: ref.watch(clienteApiProvider), base: ref.watch(baseDatosProvider));

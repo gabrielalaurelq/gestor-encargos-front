@@ -4,7 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../shared/infrastructure/http/error_api.dart';
 import '../../../shared/infrastructure/providers.dart';
-import '../../../shared/sync/cambios_pendientes.dart';
+import '../../../shared/sync/providers.dart';
 import '../data/proveedor_identidad.dart';
 import '../data/sesion_remota.dart';
 import '../data/token_notificaciones.dart';
@@ -56,9 +56,7 @@ class Sesion extends _$Sesion {
     final tokens = await ref.read(almacenTokensProvider).leer();
     if (!ref.mounted) return;
     state = tokens == null ? EstadoSesion.anonima : EstadoSesion.iniciada;
-    // Al arrancar también se re-registra: Firebase pudo rotar el token con la
-    // app cerrada, y entonces nadie escuchó la rotación.
-    if (tokens != null) unawaited(_registrarNotificaciones());
+    if (tokens != null) _alIniciar();
   }
 
   /// `null` si entró, o si el usuario cerró el selector de cuentas.
@@ -89,7 +87,7 @@ class Sesion extends _$Sesion {
     }
 
     state = EstadoSesion.iniciada;
-    unawaited(_registrarNotificaciones());
+    _alIniciar();
     return null;
   }
 
@@ -128,6 +126,15 @@ class Sesion extends _$Sesion {
     }
     state = EstadoSesion.anonima;
     return null;
+  }
+
+  /// Al entrar y al abrir la app con sesión: sincronizar (Doc 7: al iniciar
+  /// sesión se reserva el bloque de números y se trae lo del servidor) y
+  /// registrar el token de notificaciones — también al abrir, porque Firebase
+  /// pudo rotarlo con la app cerrada y nadie escuchó la rotación.
+  void _alIniciar() {
+    unawaited(ref.read(motorSyncProvider).sincronizar());
+    unawaited(_registrarNotificaciones());
   }
 
   Future<void> _registrarNotificaciones() async {

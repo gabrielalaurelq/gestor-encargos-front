@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:gestor_encargos/shared/infrastructure/auth/almacen_tokens.dart';
+import 'package:gestor_encargos/shared/infrastructure/config/ambiente.dart';
+import 'package:gestor_encargos/shared/infrastructure/http/cliente_api.dart';
 
 /// Respuesta simulada del backend.
 class Respuesta {
@@ -85,3 +88,10 @@ class AdaptadorFalso implements HttpClientAdapter {
   @override
   void close({bool force = false}) {}
 }
+
+/// `ClienteApi` con sesión iniciada contra [backend].
+ClienteApi clienteApiDePrueba(AdaptadorFalso backend) => ClienteApi(
+  ambiente: const Ambiente(apiUrl: 'http://api.test/api/v1'),
+  tokens: AlmacenTokensEnMemoria(const Tokens(access: 'a', refresh: 'r')),
+  adaptador: backend,
+);

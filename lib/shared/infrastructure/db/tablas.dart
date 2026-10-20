@@ -121,3 +121,50 @@ class Fotos extends Table with _Sincronizada {
   TextColumn get urlDescarga => text().nullable()();
   TextColumn get urlDescargaExpiraEn => text().nullable()();
 }
+
+// --- Propia del dispositivo -------------------------------------------------
+
+/// Cola Outbox (Doc 3; Doc 7, Bloque 3: `outbox_operations`): cada escritura
+/// hecha en el teléfono, a la espera de subir al servidor como una llamada
+/// REST normal, en el orden en que se hizo.
+///
+/// Una operación está **pendiente** o **apartada** (`apartadaCodigo` con
+/// valor): el servidor la rechazó con un error permanente y reintentarla no
+/// cambiaría nada (decisión del usuario, Sprint 0: se aparta y la cola sigue).
+@DataClassName('OperacionOutbox')
+class OperacionesOutbox extends Table {
+  @override
+  String get tableName => 'outbox_operations';
+
+  /// `AUTOINCREMENT`: los ids nunca se reutilizan ni retroceden, así que
+  /// ordenar por id es ordenar por momento de encolado.
+  IntColumn get id => integer().autoIncrement()();
+
+  /// Qué hizo el usuario (`crear_encargo`, `registrar_pago`…): para los
+  /// mensajes de la lista de no sincronizadas y para preparar el envío.
+  TextColumn get tipo => text()();
+  TextColumn get metodo => text()();
+  TextColumn get ruta => text()();
+
+  /// JSON del cuerpo, tal cual se enviará.
+  TextColumn get cuerpo => text().nullable()();
+
+  /// Fila espejo que esta operación modifica: el pull no la pisa mientras la
+  /// operación exista.
+  TextColumn get entidadId => text()();
+
+  /// Raíz del agregado (Doc 2): el servidor recalcula sus totales al recibir
+  /// la operación, así que también se protege.
+  TextColumn get encargoId => text().nullable()();
+
+  IntColumn get intentos => integer().withDefault(const Constant(0))();
+
+  /// Reloj del dispositivo, ISO. Solo informativo: el orden lo da el id.
+  TextColumn get creadoEn => text()();
+
+  /// Código del último error transitorio, para diagnóstico.
+  TextColumn get ultimoError => text().nullable()();
+
+  TextColumn get apartadaCodigo => text().nullable()();
+  TextColumn get apartadaMensaje => text().nullable()();
+}
