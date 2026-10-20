@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- La app habla con la API (Doc 5) y con R2 (fotos): sin este permiso en
+         el manifiesto principal, el build de release no tendría red. Flutter
+         solo lo pone en los de debug/profile. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Gestor de Encargos"
         android:name="${applicationName}"
