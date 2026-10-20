@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/app.dart';
 import 'package:gestor_encargos/shared/presentation/tema/tema.dart';
 
-/// Navegación del Doc 7 (Bloque 2) y reglas de accesibilidad del Doc 6.
+import 'helpers/entorno_prueba.dart';
+
+/// Navegación del Doc 7 (Bloque 2) y reglas de accesibilidad del Doc 6, con
+/// una sesión ya iniciada (el flujo de sesión está en `flujo_sesion_test`).
 void main() {
   Future<void> abrirApp(WidgetTester tester, {double escalaTexto = 1}) async {
     // Teléfono típico del público objetivo: 360x780 dp.
@@ -14,7 +17,11 @@ void main() {
     addTearDown(tester.view.reset);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-    await tester.pumpWidget(const ProviderScope(child: GestorEncargosApp()));
+    final entorno = EntornoPrueba.conSesion();
+    addTearDown(entorno.cerrar);
+    await tester.pumpWidget(
+      ProviderScope(overrides: entorno.overrides, child: const GestorEncargosApp()),
+    );
     await tester.pumpAndSettle();
   }
 

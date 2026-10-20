@@ -52,4 +52,18 @@ class BaseDatos extends _$BaseDatos {
 
   Future<void> borrarMetadato(String clave) =>
       (delete(metadatos)..where((m) => m.clave.equals(clave))).go();
+
+  /// Vacía **todas** las tablas (datos del negocio, Outbox y metadatos). Para
+  /// cuando estos datos dejan de ser de quien usa el teléfono: cierre de sesión
+  /// o entrada con otra cuenta.
+  ///
+  /// Recorre [allTables], así que una tabla nueva queda cubierta sin tocar
+  /// esto. Las llaves foráneas se difieren al final de la transacción: el
+  /// orden de borrado entre padres e hijos deja de importar.
+  Future<void> borrarTodo() => transaction(() async {
+    await customStatement('PRAGMA defer_foreign_keys = ON');
+    for (final tabla in allTables) {
+      await delete(tabla).go();
+    }
+  });
 }

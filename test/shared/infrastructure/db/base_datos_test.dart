@@ -35,4 +35,15 @@ void main() {
       expect(await base.leerMetadato('x'), isNull);
     });
   });
+
+  test('borrarTodo vacía todas las tablas (cierre de sesión)', () async {
+    await base.guardarMetadato('sync.since', '2026-10-20T10:00:00.000Z');
+    await base.guardarMetadato('sesion.negocio_id', 'n1');
+
+    await base.borrarTodo();
+
+    for (final tabla in base.allTables) {
+      expect(await base.select(tabla).get(), isEmpty, reason: tabla.actualTableName);
+    }
+  });
 }

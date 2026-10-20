@@ -31,7 +31,7 @@ Se adelanta el motor de sincronización al Sprint 0, respecto del Doc 11: es la 
 |---|---|---|
 | **F0** | Esqueleto: proyecto Android, lints, Riverpod, GoRouter con el shell de 4 destinos, tema del Doc 6, CI | ✅ |
 | **F1** | Infraestructura compartida: ambiente, cliente HTTP con el formato de error del Doc 5 y refresh de token, almacenamiento seguro, Drift base, VOs `Monto` y `Telefono` | ✅ |
-| **F2** | Sesión: puerto de identidad (Google/Firebase) con doble, login/logout, redirect | ⏳ |
+| **F2** | Sesión: puerto de identidad (Google/Firebase) con doble, login/logout, redirect | ✅ |
 | **F3** | Motor de sync: tablas espejo + Outbox, pull (paginación, solape, tombstones, `410`), push con reintentos, numeración Hi/Lo | ⏳ |
 
 **Decisiones del usuario para el motor de sync** (huecos del Doc 7):
@@ -60,3 +60,16 @@ Se adelanta el motor de sincronización al Sprint 0, respecto del Doc 11: es la 
 - **Configuración por ambiente** con `--dart-define=API_URL=...`, nunca en un archivo dentro del APK.
 
 **Dos fallas de Android que ningún test detecta, corregidas al revisar los manifiestos:** el permiso `INTERNET` solo existía en los manifiestos de debug/profile —**el APK de release no habría tenido red**—, y Android bloquea `http://` en claro desde la API 28, que es como se sirve el backend local; el tráfico en claro se habilita **solo en debug**.
+
+## F2 — Sesión (`lib/features/sesion/`)
+
+- **Login con un solo botón** ("Continuar con Google", Doc 6) → `POST /auth/login` → tokens al almacenamiento seguro → directo al Dashboard, sin tour. Cerrar el selector de cuentas no es un error: no se muestra nada. Cada fallo tiene su mensaje en lenguaje llano; el más importante, **"la primera vez se necesita internet"**, porque el negocio se crea en el servidor.
+- **Redirect de GoRouter** (`redirigir()`, función pura con sus tests): sin sesión, toda ruta —también las profundas— lleva a `/login`; con sesión, `/login` lleva al Dashboard. Mientras se leen los tokens al arrancar hay una pantalla en blanco de milisegundos (`/arranque`), para que el Dashboard no asome antes de saber si hay sesión. El router **no se reconstruye** al cambiar la sesión (perdería la pila): la recibe por `refreshListenable`.
+- **Dos formas de terminar, con efectos distintos a propósito:**
+  - **El usuario cierra sesión** (Ajustes → confirmación) → `POST /auth/logout` y se **borra la base local entera** (`BaseDatos.borrarTodo()`, que recorre todas las tablas: una tabla nueva queda cubierta sola).
+  - **La sesión expira** (refresh rechazado: logout desde otro lado, o 90 días) → vuelve al login **conservando datos y Outbox**: si entra la misma cuenta, sus cambios hechos sin conexión siguen ahí y suben. Si entra **otra** cuenta, los datos del negocio anterior se borran al entrar (se compara el `negocio.id` guardado).
+- **No se deja cerrar sesión** (decisión del usuario): con **cambios sin enviar** —cerrar los borraría—, ni **sin red** —la sesión seguiría viva en el servidor y el teléfono recibiendo las notificaciones del negocio—. En ambos casos el usuario sigue dentro con todo intacto y un mensaje dice qué hacer. La cuenta de pendientes es `cambiosPendientesProvider` (`shared/sync/`), que hoy devuelve 0 y F3 conecta a la Outbox.
+- **El cliente HTTP avisa, la feature decide:** `ClienteApi` emite la expiración por `AvisoSesion` y la sesión la escucha — `shared/` no importa nada de `features/`.
+- **Notificaciones (FCM)**: el token se registra (`POST /dispositivos/fcm-token`) al entrar, en cada arranque con sesión (Firebase pudo rotarlo con la app cerrada) y en cada rotación. Es *best effort*: un fallo —sin red, o `409 FCM_TOKEN_EN_USO`— no impide entrar y se reintenta en el próximo arranque. Al cerrar sesión **no** se llama a `DELETE /dispositivos/fcm-token`: `/auth/logout` ya borra la fila del dispositivo, token incluido (Doc 5). El Doc 7 (Bloque 3, punto 4) pedía ambas llamadas; queda por enmendar.
+
+**Deuda técnica — sin proyecto Firebase.** `ProveedorIdentidad` y `TokenNotificaciones` son puertos con implementaciones vacías (`ProveedorIdentidadNoConfigurado`, que hace que el login diga "todavía no está configurado", y `SinNotificaciones`). Las reales (`google_sign_in` + `firebase_auth`, `firebase_messaging`) entran con el `google-services.json`: agregar esos paquetes antes rompería el arranque, porque Firebase falla al inicializarse sin su configuración. Hasta entonces la app no puede entrar contra un backend real; todo el flujo está probado con dobles (`test/helpers/entorno_prueba.dart`).

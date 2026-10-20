@@ -4,6 +4,9 @@
 /// No hay rutas para Objetos, Trabajos, Pagos, Notas ni Fotos: son secciones
 /// apiladas dentro del detalle del encargo (Doc 6), no destinos propios.
 abstract final class Rutas {
+  /// Pantalla en blanco mientras se leen los tokens al arrancar (milisegundos):
+  /// evita que el Dashboard asome un instante antes de saber si hay sesión.
+  static const arranque = '/arranque';
   static const login = '/login';
 
   // Shell con barra inferior.

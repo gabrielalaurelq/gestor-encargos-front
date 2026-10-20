@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../features/sesion/application/sesion.dart';
+import '../features/sesion/domain/estado_sesion.dart';
+import '../features/sesion/presentation/pantalla_ajustes.dart';
+import '../features/sesion/presentation/pantalla_login.dart';
 import '../shared/presentation/widgets/pantalla_pendiente.dart';
 import 'menu_mas.dart';
 import 'rutas.dart';
@@ -13,22 +17,36 @@ part 'router.g.dart';
 /// shell, para que no muestren la barra inferior (Doc 7, Bloque 2).
 final navegadorRaiz = GlobalKey<NavigatorState>(debugLabel: 'raiz');
 
-/// GoRouter como provider de Riverpod (Doc 7: Riverpod es también la DI). En
-/// el bloque de sesión (F2) se le agrega el `redirect` a `/login`.
+/// A dónde manda el router según la sesión (Doc 7, Bloque 2: sin sesión,
+/// `/login` antes de renderizar cualquier otra ruta). `null` = se queda.
+String? redirigir(EstadoSesion sesion, String ubicacion) {
+  return switch (sesion) {
+    EstadoSesion.verificando => ubicacion == Rutas.arranque ? null : Rutas.arranque,
+    EstadoSesion.anonima => ubicacion == Rutas.login ? null : Rutas.login,
+    EstadoSesion.iniciada =>
+      ubicacion == Rutas.login || ubicacion == Rutas.arranque ? Rutas.dashboard : null,
+  };
+}
+
+/// GoRouter como provider de Riverpod (Doc 7: Riverpod es también la DI).
+///
+/// No se reconstruye al cambiar la sesión —perdería la pila de navegación—:
+/// la sesión llega por `refreshListenable`, que solo vuelve a evaluar el
+/// `redirect`.
 @Riverpod(keepAlive: true)
 GoRouter router(Ref ref) {
+  final sesion = ValueNotifier(ref.read(sesionProvider));
+  ref.listen(sesionProvider, (_, nuevo) => sesion.value = nuevo);
+  ref.onDispose(sesion.dispose);
+
   return GoRouter(
     navigatorKey: navegadorRaiz,
     initialLocation: Rutas.dashboard,
+    refreshListenable: sesion,
+    redirect: (_, estado) => redirigir(sesion.value, estado.matchedLocation),
     routes: [
-      GoRoute(
-        path: Rutas.login,
-        builder: (_, _) => const PantallaPendiente(
-          titulo: 'Iniciar sesión',
-          icono: Icons.login,
-          sprint: 'Sprint 0',
-        ),
-      ),
+      GoRoute(path: Rutas.arranque, builder: (_, _) => const Scaffold()),
+      GoRoute(path: Rutas.login, builder: (_, _) => const PantallaLogin()),
       StatefulShellRoute.indexedStack(
         builder: (_, _, navegacion) => ShellPrincipal(navegacion: navegacion),
         branches: [
@@ -114,14 +132,7 @@ GoRouter router(Ref ref) {
                       sprint: 'Sprint 1',
                     ),
                   ),
-                  GoRoute(
-                    path: 'ajustes',
-                    builder: (_, _) => const PantallaPendiente(
-                      titulo: 'Ajustes',
-                      icono: Icons.settings_outlined,
-                      sprint: 'Sprint 7',
-                    ),
-                  ),
+                  GoRoute(path: 'ajustes', builder: (_, _) => const PantallaAjustes()),
                 ],
               ),
             ],

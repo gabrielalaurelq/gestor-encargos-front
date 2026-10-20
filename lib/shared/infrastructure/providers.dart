@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'auth/almacen_tokens.dart';
+import 'auth/aviso_sesion.dart';
 import 'config/ambiente.dart';
 import 'db/base_datos.dart';
 import 'http/cliente_api.dart';
@@ -18,6 +19,13 @@ Ambiente ambiente(Ref ref) => Ambiente.desdeCompilacion();
 AlmacenTokens almacenTokens(Ref ref) => AlmacenTokensSeguro();
 
 @Riverpod(keepAlive: true)
+AvisoSesion avisoSesion(Ref ref) {
+  final aviso = AvisoSesion();
+  ref.onDispose(aviso.cerrar);
+  return aviso;
+}
+
+@Riverpod(keepAlive: true)
 BaseDatos baseDatos(Ref ref) {
   final base = BaseDatos();
   ref.onDispose(base.close);
@@ -25,8 +33,11 @@ BaseDatos baseDatos(Ref ref) {
 }
 
 @Riverpod(keepAlive: true)
-ClienteApi clienteApi(Ref ref) => ClienteApi(
-  ambiente: ref.watch(ambienteProvider),
-  tokens: ref.watch(almacenTokensProvider),
-  // La reacción a la sesión expirada (volver a /login) la conecta F2.
-);
+ClienteApi clienteApi(Ref ref) {
+  final aviso = ref.watch(avisoSesionProvider);
+  return ClienteApi(
+    ambiente: ref.watch(ambienteProvider),
+    tokens: ref.watch(almacenTokensProvider),
+    alExpirarSesion: aviso.sesionExpirada,
+  );
+}
