@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../features/clientes/presentation/pantalla_clientes.dart';
 import '../features/servicios/presentation/pantalla_catalogo.dart';
 import '../features/sesion/application/sesion.dart';
 import '../features/sesion/domain/estado_sesion.dart';
@@ -60,6 +61,7 @@ GoRouter router(Ref ref) {
                   icono: Icons.home_outlined,
                   sprint: 'Sprint 5',
                   accionFlotante: FloatingActionButton(
+                    heroTag: null, // ver PantallaClientes
                     tooltip: 'Nuevo encargo',
                     onPressed: () => context.push(Rutas.nuevoEncargo),
                     child: const Icon(Icons.add, size: 32),
@@ -72,11 +74,7 @@ GoRouter router(Ref ref) {
             routes: [
               GoRoute(
                 path: Rutas.clientes,
-                builder: (_, _) => const PantallaPendiente(
-                  titulo: 'Clientes',
-                  icono: Icons.people_outline,
-                  sprint: 'Sprint 1',
-                ),
+                builder: (_, _) => const PantallaClientes(),
                 routes: [
                   GoRoute(
                     path: ':id',

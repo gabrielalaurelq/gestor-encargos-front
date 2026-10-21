@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:drift/native.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/sesion/application/sesion.dart';
 import 'package:gestor_encargos/features/sesion/data/proveedor_identidad.dart';
 import 'package:gestor_encargos/features/sesion/data/token_notificaciones.dart';
@@ -124,4 +126,19 @@ Future<EstadoSesion> sesionCargada(ProviderContainer contenedor) async {
     await Future<void>.delayed(Duration.zero);
   }
   throw StateError('La sesión no terminó de cargar');
+}
+
+/// `testWidgets` para pantallas que leen Drift. Drift suelta sus consultas
+/// reactivas con un timer de 0 al desmontarse, y el test fallaría por "timer
+/// pendiente": se desmonta la app y se lo deja correr antes de terminar.
+///
+/// La base del [EntornoPrueba] se cierra en un `tearDown` normal, **no** con
+/// `addTearDown` dentro del test: dentro del tiempo simulado, cerrar SQLite
+/// no avanza nunca.
+void testWidgetsConBase(String descripcion, Future<void> Function(WidgetTester tester) cuerpo) {
+  testWidgets(descripcion, (tester) async {
+    await cuerpo(tester);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
 }

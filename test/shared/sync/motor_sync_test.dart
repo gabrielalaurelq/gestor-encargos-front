@@ -117,7 +117,15 @@ void main() {
   test('lo que se acaba de subir baja en la misma vuelta (ya no está protegido)', () async {
     await base
         .into(base.clientes)
-        .insert(ClientesCompanion.insert(id: 'c1', creadoEn: t1, actualizadoEn: t1, nombre: 'Ana'));
+        .insert(
+          ClientesCompanion.insert(
+            id: 'c1',
+            creadoEn: t1,
+            actualizadoEn: t1,
+            nombre: 'Ana',
+            nombreBusqueda: 'ana',
+          ),
+        );
     await outbox.encolar(
       const OperacionNueva(
         tipo: 'editar_cliente',

@@ -31,16 +31,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Drift suelta sus consultas reactivas con un timer de 0: hay que desmontar
-  /// la pantalla y dejarlo correr antes de que el test termine.
-  void probar(String descripcion, Future<void> Function(WidgetTester) cuerpo) {
-    testWidgets(descripcion, (tester) async {
-      await cuerpo(tester);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(milliseconds: 1));
-    });
-  }
-
   Future<List<OperacionOutbox>> cola() => entorno.base.select(entorno.base.operacionesOutbox).get();
 
   Future<void> agregar(WidgetTester tester, String nombre, String precio) async {
@@ -57,13 +47,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  probar('vacío: explica qué hacer, nunca una pantalla en blanco (Doc 6)', (tester) async {
+  testWidgetsConBase('vacío: explica qué hacer, nunca una pantalla en blanco (Doc 6)', (
+    tester,
+  ) async {
     await abrir(tester);
 
     expect(find.text('Aún no tienes servicios. Toca + para agregar el primero.'), findsOneWidget);
   });
 
-  probar('agregar: aparece en la lista con su precio y queda por subir', (tester) async {
+  testWidgetsConBase('agregar: aparece en la lista con su precio y queda por subir', (
+    tester,
+  ) async {
     await abrir(tester);
 
     await agregar(tester, 'Basta de jean', '20');
@@ -75,7 +69,7 @@ void main() {
     expect(op.cuerpoJson, containsPair('precio', 20));
   });
 
-  probar('sin nombre ni precio: muestra los dos errores y no guarda', (tester) async {
+  testWidgetsConBase('sin nombre ni precio: muestra los dos errores y no guarda', (tester) async {
     await abrir(tester);
 
     await agregar(tester, ' ', '');
@@ -85,7 +79,7 @@ void main() {
     expect(await cola(), isEmpty);
   });
 
-  probar('el campo de precio no deja escribir signo ni coma', (tester) async {
+  testWidgetsConBase('el campo de precio no deja escribir signo ni coma', (tester) async {
     await abrir(tester);
     await tester.tap(find.byTooltip('Agregar servicio'));
     await tester.pumpAndSettle();
@@ -95,7 +89,7 @@ void main() {
     expect(find.text('15'), findsOneWidget);
   });
 
-  probar('editar: el nombre no se toca, el precio sí', (tester) async {
+  testWidgetsConBase('editar: el nombre no se toca, el precio sí', (tester) async {
     await abrir(tester);
     await agregar(tester, 'Basta', '20');
 
@@ -111,7 +105,7 @@ void main() {
     expect((await cola()).last.cuerpoJson, {'precio': 22.5});
   });
 
-  probar('guardar sin cambiar el precio no encola nada', (tester) async {
+  testWidgetsConBase('guardar sin cambiar el precio no encola nada', (tester) async {
     await abrir(tester);
     await agregar(tester, 'Basta', '20');
 
@@ -122,7 +116,9 @@ void main() {
     expect((await cola()).length, 1, reason: 'solo el alta');
   });
 
-  probar('desactivar: pasa a "Desactivados" y se deshace desde el aviso', (tester) async {
+  testWidgetsConBase('desactivar: pasa a "Desactivados" y se deshace desde el aviso', (
+    tester,
+  ) async {
     await abrir(tester);
     await agregar(tester, 'Basta', '20');
 
@@ -143,7 +139,7 @@ void main() {
     expect(activos, [null, false, true]);
   });
 
-  probar('un desactivado se reactiva desde su sección', (tester) async {
+  testWidgetsConBase('un desactivado se reactiva desde su sección', (tester) async {
     await abrir(tester);
     await agregar(tester, 'Basta', '20');
     await abrirServicio(tester, 'Basta');
@@ -162,7 +158,7 @@ void main() {
     expect(find.text('Desactivados (1)'), findsNothing);
   });
 
-  probar('todo lo tocable mide al menos 56dp (Doc 6)', (tester) async {
+  testWidgetsConBase('todo lo tocable mide al menos 56dp (Doc 6)', (tester) async {
     await abrir(tester);
     await agregar(tester, 'Basta', '20');
     await abrirServicio(tester, 'Basta');

@@ -9,6 +9,11 @@ import 'helpers/entorno_prueba.dart';
 /// Navegación del Doc 7 (Bloque 2) y reglas de accesibilidad del Doc 6, con
 /// una sesión ya iniciada (el flujo de sesión está en `flujo_sesion_test`).
 void main() {
+  late EntornoPrueba entorno;
+
+  setUp(() => entorno = EntornoPrueba.conSesion());
+  tearDown(() => entorno.cerrar());
+
   Future<void> abrirApp(WidgetTester tester, {double escalaTexto = 1}) async {
     // Teléfono típico del público objetivo: 360x780 dp.
     tester.view.physicalSize = const Size(1080, 2340);
@@ -17,15 +22,13 @@ void main() {
     addTearDown(tester.view.reset);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-    final entorno = EntornoPrueba.conSesion();
-    addTearDown(entorno.cerrar);
     await tester.pumpWidget(
       ProviderScope(overrides: entorno.overrides, child: const GestorEncargosApp()),
     );
     await tester.pumpAndSettle();
   }
 
-  testWidgets('arranca en Inicio, con los 4 destinos del Doc 6', (tester) async {
+  testWidgetsConBase('arranca en Inicio, con los 4 destinos del Doc 6', (tester) async {
     await abrirApp(tester);
 
     expect(find.byType(NavigationBar), findsOneWidget);
@@ -38,7 +41,7 @@ void main() {
     expect(find.widgetWithText(AppBar, 'Inicio'), findsOneWidget);
   });
 
-  testWidgets('cambia de pestaña al tocar la barra', (tester) async {
+  testWidgetsConBase('cambia de pestaña al tocar la barra', (tester) async {
     await abrirApp(tester);
 
     await tester.tap(find.text('Clientes'));
@@ -47,7 +50,7 @@ void main() {
     expect(find.widgetWithText(AppBar, 'Clientes'), findsOneWidget);
   });
 
-  testWidgets('"Más" lleva a sus 4 opciones y abre una dentro del shell', (tester) async {
+  testWidgetsConBase('"Más" lleva a sus 4 opciones y abre una dentro del shell', (tester) async {
     await abrirApp(tester);
 
     await tester.tap(find.text('Más'));
@@ -63,7 +66,9 @@ void main() {
     expect(find.byType(NavigationBar), findsOneWidget, reason: 'sigue dentro del shell');
   });
 
-  testWidgets('"Nuevo encargo" se abre a pantalla completa, sin barra inferior', (tester) async {
+  testWidgetsConBase('"Nuevo encargo" se abre a pantalla completa, sin barra inferior', (
+    tester,
+  ) async {
     await abrirApp(tester);
 
     await tester.tap(find.byTooltip('Nuevo encargo'));
@@ -74,7 +79,7 @@ void main() {
     expect(find.byType(BackButton), findsOneWidget);
   });
 
-  testWidgets('todo lo tocable mide al menos 56dp (Doc 6)', (tester) async {
+  testWidgetsConBase('todo lo tocable mide al menos 56dp (Doc 6)', (tester) async {
     await abrirApp(tester);
     await tester.tap(find.text('Más'));
     await tester.pumpAndSettle();
@@ -91,7 +96,7 @@ void main() {
     }
   });
 
-  testWidgets('cumple las guías de Flutter de área táctil y contraste', (tester) async {
+  testWidgetsConBase('cumple las guías de Flutter de área táctil y contraste', (tester) async {
     final handle = tester.ensureSemantics();
     await abrirApp(tester);
 
@@ -101,7 +106,7 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('respeta la letra grande del sistema sin desbordes (200%)', (tester) async {
+  testWidgetsConBase('respeta la letra grande del sistema sin desbordes (200%)', (tester) async {
     await abrirApp(tester, escalaTexto: 2);
 
     await tester.tap(find.text('Más'));

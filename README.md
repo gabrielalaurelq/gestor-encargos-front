@@ -109,7 +109,7 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 | Bloque | Contenido | Estado |
 |---|---|---|
 | **S1a** | Catálogo de servicios: lista, alta, cambio de precio, desactivar/reactivar | ✅ |
-| **S1b** | Clientes: lista con búsqueda local en tiempo real, alta y edición con teléfono peruano o internacional | — |
+| **S1b** | Clientes: lista con búsqueda local en tiempo real, alta y edición con teléfono peruano o internacional | ✅ |
 | **S1c** | Ficha de cliente: datos, resumen del historial y encargos, calculados en local | — |
 
 ## S1a — Catálogo de servicios (`lib/features/servicios/`)
@@ -119,4 +119,13 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 - Reglas y códigos del backend validados antes de guardar (nombre no vacío; precio ≥ 0, el cero vale), para que un rechazo del servidor —que la Outbox apartaría— no dependa del usuario. El **nombre no se edita** (el `PATCH` del Doc 5 no lo admite): la hoja lo dice y propone desactivar y crear otro.
 - **Desactivados aparte, plegados y reactivables** (decisión del usuario). Desactivar no pide confirmación: el aviso ofrece "Deshacer".
 - El campo de precio no acepta signo ni coma: la coma es separador de miles en el formato peruano y sería ambigua.
-- Tests de pantalla contra Drift en memoria. Gotcha: Drift suelta sus consultas reactivas con un timer de 0, así que cada test desmonta la pantalla y avanza 1 ms antes de terminar.
+- Tests de pantalla contra Drift en memoria, con `testWidgetsConBase` (`test/helpers/entorno_prueba.dart`): Drift suelta sus consultas reactivas con un timer de 0, así que el test desmonta la app y avanza 1 ms antes de terminar, y la base se cierra en un `tearDown` normal (dentro del tiempo simulado, cerrarla no avanza nunca).
+
+## S1b — Clientes (`lib/features/clientes/`)
+
+- **Búsqueda en tiempo real sobre la base local** (PRD módulo 1, Caso 8): parte del nombre sin importar mayúsculas ni tildes ("nunez" encuentra "Núñez", también en medio de una palabra) o dígitos del teléfono ("987 65", con o sin `+51`). SQLite no ignora tildes, así que `clientes.nombre_busqueda` guarda `normalizarBusqueda(nombre)` (`shared/domain/texto_busqueda.dart`), calculada al escribir en local y al bajar; también da el orden alfabético. `%` y `_` se buscan como texto, igual que el backend.
+- **Sin resultados → "Crear cliente «texto»"** con lo buscado prellenado: en el nombre, o en el celular si lo buscado es un número.
+- **Teléfono** (PRD): celular peruano de 9 dígitos por defecto, con el `+51` visible pero sin escribirlo; "Número de otro país" cambia el campo al número completo. Opcional; al editar, vaciarlo lo borra (`PATCH` con `telefono: null` explícito: ausente sería "no tocar"). El `PATCH` lleva solo lo que cambió.
+- **Teléfono repetido: aviso que no bloquea** (decisión del usuario). "Ya tienes a X con este número" con "Ver a X" (no crea nada) o "Guardar igual".
+- `HojaCliente` devuelve el cliente creado o el existente elegido: Crear Encargo (Sprint 2) la reutiliza para crear un cliente sin salir del flujo. La edición se abre desde la ficha (S1c).
+- **Bug corregido de paso:** el shell mantiene vivas las pestañas, y dos botones (+) con el `heroTag` por defecto chocaban al abrir una pantalla de profundidad 2. Los botones flotantes van sin Hero.

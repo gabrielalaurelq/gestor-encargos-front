@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/presentation/tema/colores.dart';
 import '../../../shared/presentation/tema/tema.dart';
+import '../../../shared/presentation/widgets/mensaje_pantalla.dart';
 import '../application/catalogo.dart';
 import '../domain/servicio.dart';
 import 'hoja_servicio.dart';
@@ -47,6 +48,9 @@ class PantallaCatalogo extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Catálogo de servicios')),
       floatingActionButton: FloatingActionButton(
+        // Sin Hero: el shell mantiene vivas las pestañas (indexedStack) y dos
+        // botones (+) con la etiqueta por defecto chocan al abrir otra pantalla.
+        heroTag: null,
         tooltip: 'Agregar servicio',
         onPressed: () => _abrir(context, ref),
         child: const Icon(Icons.add, size: 32),
@@ -56,7 +60,10 @@ class PantallaCatalogo extends ConsumerWidget {
           servicios: value,
           alTocar: (servicio) => _abrir(context, ref, servicio: servicio),
         ),
-        AsyncError() => _Error(alReintentar: () => ref.invalidate(catalogoProvider)),
+        AsyncError() => MensajePantalla.error(
+          texto: 'No se pudo mostrar el catálogo.',
+          alReintentar: () => ref.invalidate(catalogoProvider),
+        ),
         // La base local responde al instante (Doc 6: "Cargando" casi no se ve).
         _ => const SizedBox.shrink(),
       },
@@ -81,7 +88,7 @@ class _Lista extends StatelessWidget {
         if (!s.activo) s,
     ];
     if (servicios.isEmpty) {
-      return const _Mensaje(
+      return const MensajePantalla(
         icono: Icons.list_alt,
         texto: 'Aún no tienes servicios. Toca + para agregar el primero.',
       );
@@ -126,48 +133,6 @@ class _Fila extends StatelessWidget {
         style: TextStyle(fontSize: Medidas.textoCuerpo, fontWeight: FontWeight.w600, color: color),
       ),
       onTap: () => alTocar(servicio),
-    );
-  }
-}
-
-class _Mensaje extends StatelessWidget {
-  const _Mensaje({required this.icono, required this.texto, this.accion});
-
-  final IconData icono;
-  final String texto;
-  final Widget? accion;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(Medidas.espacio * 2),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icono, size: 64, color: Colores.textoTerciario),
-            const SizedBox(height: Medidas.espacio),
-            Text(texto, textAlign: TextAlign.center),
-            if (accion != null) ...[const SizedBox(height: Medidas.espacio), accion!],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Error extends StatelessWidget {
-  const _Error({required this.alReintentar});
-
-  final VoidCallback alReintentar;
-
-  @override
-  Widget build(BuildContext context) {
-    // Lenguaje humano y botón de reintentar (Doc 6, estado "Error").
-    return _Mensaje(
-      icono: Icons.error_outline,
-      texto: 'No se pudo mostrar el catálogo.',
-      accion: OutlinedButton(onPressed: alReintentar, child: const Text('Reintentar')),
     );
   }
 }

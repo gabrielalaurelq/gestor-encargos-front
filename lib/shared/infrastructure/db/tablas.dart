@@ -40,8 +40,13 @@ mixin _Sincronizada on Table {
 }
 
 @DataClassName('ClienteFila')
+@TableIndex(name: 'clientes_nombre_busqueda', columns: {#nombreBusqueda})
 class Clientes extends Table with _Sincronizada {
   TextColumn get nombre => text()();
+
+  /// `normalizarBusqueda(nombre)`: SQLite no ignora tildes, así que la forma
+  /// con la que se busca y ordena se guarda calculada. Solo existe en local.
+  TextColumn get nombreBusqueda => text()();
 
   /// E.164 (`Telefono`), opcional.
   TextColumn get telefono => text().nullable()();

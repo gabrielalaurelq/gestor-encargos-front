@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../domain/monto.dart';
+import '../domain/texto_busqueda.dart';
 import '../infrastructure/db/base_datos.dart';
 
 typedef Json = Map<String, Object?>;
@@ -44,6 +45,7 @@ ClientesCompanion _cliente(Json j) => ClientesCompanion.insert(
   creadoEn: _texto(j, 'creado_en'),
   actualizadoEn: _texto(j, 'actualizado_en'),
   nombre: _texto(j, 'nombre'),
+  nombreBusqueda: normalizarBusqueda(_texto(j, 'nombre')),
   telefono: Value(_textoONulo(j, 'telefono')),
 );
 
