@@ -1,12 +1,15 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/encargos/data/repositorio_encargos.dart';
+import 'package:gestor_encargos/shared/domain/monto.dart';
 import 'package:gestor_encargos/shared/domain/valor_invalido.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
 import 'package:gestor_encargos/shared/sync/numeracion.dart';
 import 'package:gestor_encargos/shared/sync/outbox.dart';
 
 import '../../../helpers/adaptador_falso.dart';
+import '../../../helpers/encargos_prueba.dart';
 
 void main() {
   late BaseDatos base;
@@ -97,5 +100,73 @@ void main() {
     expect(await base.select(base.encargos).get(), isEmpty);
     expect(await cola(), isEmpty);
     expect(await numeracion.restantes(), 86);
+  });
+
+  group('observar (detalle)', () {
+    Future<void> conAna() => base
+        .into(base.clientes)
+        .insert(
+          ClientesCompanion.insert(
+            id: 'ana',
+            creadoEn: '2026-10-01T15:00:00.000Z',
+            actualizadoEn: '2026-10-01T15:00:00.000Z',
+            nombre: 'Ana Pérez',
+            nombreBusqueda: 'ana perez',
+            telefono: const Value('+51987654321'),
+          ),
+        );
+
+    test('trae los datos generales con su cliente', () async {
+      await conAna();
+      await insertarEncargo(
+        base,
+        id: 'e1',
+        clienteId: 'ana',
+        numero: 47,
+        creadoEn: '2026-10-01T15:00:00.000Z',
+        estado: 'EN_PROCESO',
+        precioCentimos: 30000,
+        saldoCentimos: 10000,
+        descuentoCentimos: 500,
+        entregaPrometida: '2026-10-20',
+        entregaAcordada: '2026-10-24',
+        ubicacion: 'Cajón 3',
+        notas: 'Llamar antes',
+      );
+
+      final e = (await repositorio.observar('e1').first)!;
+
+      expect(
+        [e.numero, e.cliente!.nombre, e.cliente!.telefono!.valor],
+        [47, 'Ana Pérez', '+51987654321'],
+      );
+      expect(
+        [e.precioTotal, e.saldoPendiente, e.descuento],
+        [Monto.desdeCentimos(30000), Monto.desdeCentimos(10000), Monto.desdeCentimos(500)],
+      );
+      expect(
+        [e.fechaEntregaPrometida, e.fechaEntregaAcordada],
+        [DateTime.utc(2026, 10, 20), DateTime.utc(2026, 10, 24)],
+      );
+      expect([e.ubicacionFisica, e.notasGenerales], ['Cajón 3', 'Llamar antes']);
+    });
+
+    test('inexistente: null', () async {
+      expect(await repositorio.observar('nada').first, isNull);
+    });
+
+    test('es reactivo: lo recién creado aparece sin volver a abrir', () async {
+      await conAna();
+      final vistos = <int?>[];
+      final sub = repositorio.observar('e1').listen((e) => vistos.add(e?.numero));
+      await pumpEventQueue();
+
+      await conBloque(15, 100);
+      await crear();
+      await pumpEventQueue();
+
+      expect(vistos, [null, 15]);
+      await sub.cancel();
+    });
   });
 }

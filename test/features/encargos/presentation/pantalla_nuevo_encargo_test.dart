@@ -81,7 +81,7 @@ void main() {
     await tester.tap(find.text('Guardar encargo'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'Detalle del encargo'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Encargo #15'), findsOneWidget);
     expect(find.text('Encargo #15 creado'), findsOneWidget);
     final cuerpo = (await cola()).last.cuerpoJson!;
     expect(cuerpo['numero'], 15);

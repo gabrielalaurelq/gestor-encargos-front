@@ -142,7 +142,7 @@ void main() {
     await tester.tap(find.text('Basta de pantalón azul'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'Detalle del encargo'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Encargo #14'), findsOneWidget);
   });
 
   probar('"Nuevo encargo" abre Crear Encargo con este cliente ya elegido', (tester) async {

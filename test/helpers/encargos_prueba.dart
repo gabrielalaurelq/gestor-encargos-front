@@ -13,7 +13,13 @@ Future<void> insertarEncargo(
   String estado = 'INGRESADO',
   int saldoCentimos = 0,
   String entregaAcordada = '2026-10-23',
+  String? entregaPrometida,
+  String? listo,
   String? entregaReal,
+  int? precioCentimos,
+  int descuentoCentimos = 0,
+  String? ubicacion,
+  String? notas,
 }) => base
     .into(base.encargos)
     .insert(
@@ -25,12 +31,15 @@ Future<void> insertarEncargo(
         numero: Value(numero),
         descripcion: descripcion,
         estado: estado,
-        precioTotal: saldoCentimos,
-        descuento: 0,
+        precioTotal: precioCentimos ?? saldoCentimos,
+        descuento: descuentoCentimos,
         saldoPendiente: saldoCentimos,
-        fechaEntregaPrometida: entregaAcordada,
+        fechaEntregaPrometida: entregaPrometida ?? entregaAcordada,
         fechaEntregaAcordada: entregaAcordada,
+        fechaListo: Value(listo),
         fechaEntregaReal: Value(entregaReal),
+        ubicacionFisica: Value(ubicacion),
+        notasGenerales: Value(notas),
       ),
     );
 

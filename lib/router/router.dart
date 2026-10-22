@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../features/clientes/presentation/pantalla_clientes.dart';
 import '../features/clientes/presentation/pantalla_ficha_cliente.dart';
+import '../features/encargos/presentation/pantalla_detalle_encargo.dart';
 import '../features/encargos/presentation/pantalla_nuevo_encargo.dart';
 import '../features/servicios/presentation/pantalla_catalogo.dart';
 import '../features/sesion/application/sesion.dart';
@@ -138,11 +139,7 @@ GoRouter router(Ref ref) {
       ),
       GoRoute(
         path: '/encargos/:id',
-        builder: (_, _) => const PantallaPendiente(
-          titulo: 'Detalle del encargo',
-          icono: Icons.assignment_outlined,
-          sprint: 'Sprint 2',
-        ),
+        builder: (_, estado) => PantallaDetalleEncargo(encargoId: estado.pathParameters['id']!),
       ),
     ],
   );

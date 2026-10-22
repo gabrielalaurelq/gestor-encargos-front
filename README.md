@@ -144,7 +144,7 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 | Bloque | Contenido | Estado |
 |---|---|---|
 | **S2a** | Crear Encargo: cliente, descripción y fecha de entrega (Caso 7) | ✅ |
-| **S2b** | Detalle de Encargo: cabecera (las secciones llegan en Sprints 3-4) | — |
+| **S2b** | Detalle de Encargo: cabecera (las secciones llegan en Sprints 3-4) | ✅ |
 | **S2c** | Editar datos generales: descripción, reprogramar, ubicación, notas (el descuento va con Trabajos, Sprint 3) | — |
 
 ## S2a — Crear Encargo (`lib/features/encargos/`)
@@ -155,3 +155,10 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 - **Al guardar**, en una transacción: número del bloque Hi/Lo (sin red; si se agotó, sin número y se numera al subir), fila INGRESADO en cero con prometida = acordada, y el `POST /encargos` en la cola. Luego **reemplaza** la pantalla por el Detalle (decisión del usuario; "atrás" no vuelve al formulario) con "Encargo #N creado".
 - **Salir con algo escrito pide confirmación** ("¿Descartar este encargo?"); vacío sale directo. El botón Guardar va fijo abajo, siempre visible.
 - `Aviso` (advertencia ámbar que no bloquea) queda compartido con el teléfono repetido.
+
+## S2b — Detalle de Encargo, cabecera (`lib/features/encargos/presentation/pantalla_detalle_encargo.dart`)
+
+- **Como el wireframe del Doc 6:** "Encargo #47" (o "sin número aún") con la etiqueta de estado; cliente con su celular (tocarlo abre su ficha); descripción; Entrega, Ubicación ("Sin ubicación" si no hay), Precio total y Saldo pendiente (**rojo si > S/ 0**, "A favor del cliente" si es negativo). Descuento, "Listo el" / "Entregado el" y Notas generales solo si existen. Si se reprogramó, "Prometido: …".
+- **Atrasado** (decisión del usuario): fecha acordada anterior a hoy y sin `fecha_listo` (Doc 2, regla 6) → la fecha en rojo con "Atrasado". **Un cancelado no se marca.** La regla vive en `Encargo.atrasadoEl(hoy)` para el Dashboard (Sprint 5).
+- Una sola consulta reactiva (`RepositorioEncargos.observar`, encargo + cliente con `LEFT JOIN`). Sin botones aún: "Cambiar estado" y las secciones llegan en Sprints 3-4, WhatsApp en el 5, Editar en el S2c.
+- **Deuda menor:** `Encargo` (detalle) y `EncargoDeCliente` (fila de la ficha) son dos modelos de lectura; unificarlos en el Sprint 3, cuando `Encargo` sume trabajos y pagos.
