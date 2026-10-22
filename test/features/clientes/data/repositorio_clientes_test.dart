@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/clientes/data/repositorio_clientes.dart';
 import 'package:gestor_encargos/features/clientes/domain/cliente.dart';
+import 'package:gestor_encargos/shared/domain/monto.dart';
 import 'package:gestor_encargos/shared/domain/telefono.dart';
 import 'package:gestor_encargos/shared/domain/valor_invalido.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
@@ -9,6 +10,7 @@ import 'package:gestor_encargos/shared/sync/bajada.dart';
 import 'package:gestor_encargos/shared/sync/outbox.dart';
 
 import '../../../helpers/adaptador_falso.dart';
+import '../../../helpers/encargos_prueba.dart';
 
 void main() {
   late BaseDatos base;
@@ -140,6 +142,86 @@ void main() {
 
     expect([for (final c in await repositorio.conTelefono(celular)) c.nombre], ['Ana']);
     expect(await repositorio.conTelefono(celular, excepto: ana.id), isEmpty);
+  });
+
+  group('encargosDe (ficha del cliente)', () {
+    Future<List<String>> ids() async => [
+      for (final e in await repositorio.encargosDe('ana').first) e.id,
+    ];
+
+    test('solo los suyos, del alta más reciente al más antiguo', () async {
+      await insertarEncargo(
+        base,
+        id: 'viejo',
+        clienteId: 'ana',
+        creadoEn: '2026-09-01T15:00:00.000Z',
+      );
+      await insertarEncargo(
+        base,
+        id: 'nuevo',
+        clienteId: 'ana',
+        creadoEn: '2026-10-20T15:00:00.000Z',
+      );
+      await insertarEncargo(
+        base,
+        id: 'medio',
+        clienteId: 'ana',
+        creadoEn: '2026-10-01T15:00:00.000Z',
+      );
+      await insertarEncargo(
+        base,
+        id: 'ajeno',
+        clienteId: 'luis',
+        creadoEn: '2026-10-21T15:00:00.000Z',
+      );
+
+      expect(await ids(), ['nuevo', 'medio', 'viejo']);
+    });
+
+    test('cada uno con lo pagado; sin pagos, cero', () async {
+      await insertarEncargo(base, id: 'e1', clienteId: 'ana', creadoEn: '2026-10-01T15:00:00.000Z');
+      await insertarEncargo(base, id: 'e2', clienteId: 'ana', creadoEn: '2026-10-02T15:00:00.000Z');
+      await insertarPago(base, id: 'p1', encargoId: 'e1', centimos: 2000);
+      await insertarPago(base, id: 'p2', encargoId: 'e1', centimos: 1050);
+
+      final encargos = await repositorio.encargosDe('ana').first;
+
+      expect(
+        {for (final e in encargos) e.id: e.pagado},
+        {'e2': Monto.cero, 'e1': Monto.desdeCentimos(3050)},
+      );
+    });
+
+    test('es reactiva: un pago nuevo cambia lo pagado sin volver a abrir', () async {
+      await insertarEncargo(base, id: 'e1', clienteId: 'ana', creadoEn: '2026-10-01T15:00:00.000Z');
+      final pagados = <Monto>[];
+      final sub = repositorio.encargosDe('ana').listen((l) => pagados.add(l.single.pagado));
+      await pumpEventQueue();
+
+      await insertarPago(base, id: 'p1', encargoId: 'e1', centimos: 500);
+      await pumpEventQueue();
+
+      expect(pagados.last, Monto.desdeCentimos(500));
+      await sub.cancel();
+    });
+
+    test('fechas de hecho como días y número opcional', () async {
+      await insertarEncargo(
+        base,
+        id: 'e1',
+        clienteId: 'ana',
+        creadoEn: '2026-10-01T15:00:00.000Z',
+        entregaAcordada: '2026-10-24',
+        entregaReal: '2026-10-25',
+      );
+
+      final e = (await repositorio.encargosDe('ana').first).single;
+
+      expect(
+        [e.numero, e.fechaEntregaAcordada, e.fechaEntregaReal],
+        [null, DateTime.utc(2026, 10, 24), DateTime.utc(2026, 10, 25)],
+      );
+    });
   });
 
   test('lo que baja del servidor también se puede buscar sin tildes', () async {

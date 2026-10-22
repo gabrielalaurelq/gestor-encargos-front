@@ -4,6 +4,7 @@ import '../../../shared/infrastructure/providers.dart';
 import '../../../shared/sync/providers.dart';
 import '../data/repositorio_clientes.dart';
 import '../domain/cliente.dart';
+import '../domain/historial_cliente.dart';
 
 part 'clientes.g.dart';
 
@@ -16,3 +17,12 @@ RepositorioClientes repositorioClientes(Ref ref) =>
 @riverpod
 Stream<List<Cliente>> busquedaClientes(Ref ref, String texto) =>
     ref.watch(repositorioClientesProvider).buscar(texto);
+
+/// Un cliente para su ficha; `null` si no está en el teléfono.
+@riverpod
+Stream<Cliente?> cliente(Ref ref, String id) => ref.watch(repositorioClientesProvider).observar(id);
+
+/// Los encargos de la ficha, con lo pagado de cada uno.
+@riverpod
+Stream<List<EncargoDeCliente>> encargosDeCliente(Ref ref, String clienteId) =>
+    ref.watch(repositorioClientesProvider).encargosDe(clienteId);

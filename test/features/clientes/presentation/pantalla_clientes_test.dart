@@ -73,7 +73,7 @@ void main() {
     await tester.tap(find.text('Ana Pérez'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'Ficha del cliente'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Ana Pérez'), findsOneWidget, reason: 'su ficha');
   });
 
   probar('filtra mientras se escribe, sin tildes ni botón buscar', (tester) async {
@@ -198,7 +198,7 @@ void main() {
       await tester.tap(find.text('Ver a Ana Pérez'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(AppBar, 'Ficha del cliente'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Ana Pérez'), findsOneWidget, reason: 'su ficha');
       expect((await cola()).length, 1);
     });
   });

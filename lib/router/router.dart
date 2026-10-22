@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../features/clientes/presentation/pantalla_clientes.dart';
+import '../features/clientes/presentation/pantalla_ficha_cliente.dart';
 import '../features/servicios/presentation/pantalla_catalogo.dart';
 import '../features/sesion/application/sesion.dart';
 import '../features/sesion/domain/estado_sesion.dart';
@@ -79,11 +80,8 @@ GoRouter router(Ref ref) {
                   GoRoute(
                     path: ':id',
                     parentNavigatorKey: navegadorRaiz,
-                    builder: (_, _) => const PantallaPendiente(
-                      titulo: 'Ficha del cliente',
-                      icono: Icons.person,
-                      sprint: 'Sprint 1',
-                    ),
+                    builder: (_, estado) =>
+                        PantallaFichaCliente(clienteId: estado.pathParameters['id']!),
                   ),
                 ],
               ),

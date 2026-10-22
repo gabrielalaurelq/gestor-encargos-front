@@ -1,11 +1,14 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../shared/domain/dia.dart';
+import '../../../shared/domain/monto.dart';
 import '../../../shared/domain/telefono.dart';
 import '../../../shared/domain/texto_busqueda.dart';
 import '../../../shared/infrastructure/db/base_datos.dart';
 import '../../../shared/sync/outbox.dart';
 import '../domain/cliente.dart';
+import '../domain/historial_cliente.dart';
 
 abstract final class TiposCliente {
   static const crear = 'crear_cliente';
@@ -54,6 +57,29 @@ class RepositorioClientes {
   Stream<Cliente?> observar(String id) => (_base.select(
     _base.clientes,
   )..where((c) => c.id.equals(id))).map(_aCliente).watchSingleOrNull();
+
+  /// Sus encargos para la ficha (PRD módulo 1), del más reciente al más
+  /// antiguo por alta, como `GET /clientes/{id}/encargos`; cada uno con lo
+  /// pagado. Una sola consulta: el resumen sale de esta misma lista y se
+  /// actualiza solo cuando entra un pago o baja un cambio.
+  Stream<List<EncargoDeCliente>> encargosDe(String clienteId) {
+    return _base
+        .customSelect(
+          'SELECT e.*, COALESCE((SELECT SUM(p.monto) FROM pagos p '
+          'WHERE p.encargo_id = e.id), 0) AS pagado '
+          'FROM encargos e WHERE e.cliente_id = ? '
+          'ORDER BY e.creado_en DESC, e.id ASC',
+          variables: [Variable.withString(clienteId)],
+          readsFrom: {_base.encargos, _base.pagos},
+        )
+        .watch()
+        .map(
+          (filas) => [
+            for (final fila in filas)
+              _aEncargoDeCliente(_base.encargos.map(fila.data), fila.read<int>('pagado')),
+          ],
+        );
+  }
 
   /// Para el aviso de teléfono repetido (decisión del usuario): no bloquea,
   /// solo avisa. [excepto] es el propio cliente, al editar.
@@ -132,6 +158,18 @@ class RepositorioClientes {
       return editado;
     });
   }
+
+  static EncargoDeCliente _aEncargoDeCliente(EncargoFila fila, int pagado) => EncargoDeCliente(
+    id: fila.id,
+    numero: fila.numero,
+    descripcion: fila.descripcion,
+    codigoEstado: fila.estado,
+    fechaEntregaAcordada: diaDesdeIso(fila.fechaEntregaAcordada),
+    fechaEntregaReal: fila.fechaEntregaReal == null ? null : diaDesdeIso(fila.fechaEntregaReal!),
+    saldoPendiente: Monto.desdeCentimos(fila.saldoPendiente),
+    pagado: Monto.desdeCentimos(pagado),
+    creadoEn: fila.creadoEn,
+  );
 
   static Cliente _aCliente(ClienteFila fila) => Cliente(
     id: fila.id,

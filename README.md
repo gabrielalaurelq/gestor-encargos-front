@@ -110,7 +110,7 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 |---|---|---|
 | **S1a** | Catálogo de servicios: lista, alta, cambio de precio, desactivar/reactivar | ✅ |
 | **S1b** | Clientes: lista con búsqueda local en tiempo real, alta y edición con teléfono peruano o internacional | ✅ |
-| **S1c** | Ficha de cliente: datos, resumen del historial y encargos, calculados en local | — |
+| **S1c** | Ficha de cliente: datos, resumen del historial y encargos, calculados en local | ✅ |
 
 ## S1a — Catálogo de servicios (`lib/features/servicios/`)
 
@@ -129,3 +129,12 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 - **Teléfono repetido: aviso que no bloquea** (decisión del usuario). "Ya tienes a X con este número" con "Ver a X" (no crea nada) o "Guardar igual".
 - `HojaCliente` devuelve el cliente creado o el existente elegido: Crear Encargo (Sprint 2) la reutiliza para crear un cliente sin salir del flujo. La edición se abre desde la ficha (S1c).
 - **Bug corregido de paso:** el shell mantiene vivas las pestañas, y dos botones (+) con el `heroTag` por defecto chocaban al abrir una pantalla de profundidad 2. Los botones flotantes van sin Hero.
+
+## S1c — Ficha de cliente (`lib/features/clientes/presentation/pantalla_ficha_cliente.dart`)
+
+- **Datos, resumen y encargos, todo de la base local** (PRD módulos 1 y 18). Una sola consulta reactiva (`RepositorioClientes.encargosDe`) trae los encargos del cliente con lo pagado en cada uno; el resumen se calcula sobre esa misma lista (`ResumenCliente.de`), así que no pueden contradecirse, y se actualiza solo cuando entra un pago o baja un cambio.
+- **Mismas reglas que `GET /clientes/{id}`:** cuenta todos los encargos (también cancelados), suma todos sus pagos (también de cancelados, como la Caja diaria), y "Última visita" es el alta más reciente en el día de Lima (UTC-5, `shared/domain/dia.dart`). Orden de la lista: alta más reciente primero, como `GET /clientes/{id}/encargos`. Sin encargos dice "Aún no tiene encargos." en vez de ceros.
+- Cada encargo: descripción, número ("Sin número aún" si no tiene), estado escrito con color de apoyo (`EtiquetaEstado`), fecha de entrega si sigue abierto o de entrega real si se entregó, y "Debe S/ X" si tiene saldo (un cancelado no debe). Tocarlo abre el Detalle de Encargo (aún pendiente).
+- **Editar** abre la `HojaCliente` del S1b. **"Nuevo encargo"** (decisión del usuario) abre Crear Encargo con `?cliente=<id>`: Crear Encargo (Sprint 2) debe leerlo y dejar al cliente ya elegido.
+- `EstadoEncargo` (`features/encargos/domain/`) queda creado para Dashboard, Calendario y Detalle. `EncargoDeCliente` es un modelo de solo lectura para esta lista: **deuda menor**, revisar si se unifica con el agregado Encargo del Sprint 2.
+- `testWidgetsConBase` ahora desmonta también si el test falla: antes, un fallo dejaba colgados los tests siguientes del archivo.

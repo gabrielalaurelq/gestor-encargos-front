@@ -22,5 +22,10 @@ abstract final class Rutas {
   // Profundidad 2: pantalla completa, fuera del shell.
   static const nuevoEncargo = '/encargos/nuevo';
   static String cliente(String id) => '/clientes/$id';
+
+  /// Crear Encargo con el cliente ya elegido, desde su ficha. Crear Encargo
+  /// (Sprint 2) lee el parámetro `cliente`.
+  static String nuevoEncargoPara(String clienteId) =>
+      Uri(path: nuevoEncargo, queryParameters: {'cliente': clienteId}).toString();
   static String encargo(String id) => '/encargos/$id';
 }

@@ -135,10 +135,16 @@ Future<EstadoSesion> sesionCargada(ProviderContainer contenedor) async {
 /// La base del [EntornoPrueba] se cierra en un `tearDown` normal, **no** con
 /// `addTearDown` dentro del test: dentro del tiempo simulado, cerrar SQLite
 /// no avanza nunca.
+///
+/// Se desmonta también si el test falla: si no, el timer pendiente deja
+/// colgados a los tests siguientes del archivo.
 void testWidgetsConBase(String descripcion, Future<void> Function(WidgetTester tester) cuerpo) {
   testWidgets(descripcion, (tester) async {
-    await cuerpo(tester);
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 1));
+    try {
+      await cuerpo(tester);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 1));
+    }
   });
 }
