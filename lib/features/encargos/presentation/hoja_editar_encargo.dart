@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/domain/dia.dart';
+import '../../../shared/domain/monto.dart';
 import '../../../shared/domain/valor_invalido.dart';
 import '../../../shared/presentation/formato_fecha.dart';
 import '../../../shared/presentation/tema/tema.dart';
 import '../../../shared/presentation/widgets/aviso.dart';
+import '../../../shared/presentation/widgets/campo_precio.dart';
 import '../application/encargos.dart';
 import '../domain/encargo.dart';
+import '../domain/encargo_nuevo.dart';
 import '../domain/estado_encargo.dart';
+import '../domain/trabajo.dart';
 import 'selector_fecha_entrega.dart';
 
 /// "Editar encargo" (S2c; decisión del usuario: una sola hoja): descripción,
-/// reprogramar, ubicación física y notas generales. El cliente no se cambia
-/// (el contrato no lo acepta) y el descuento llega en el S3b2.
+/// reprogramar, descuento (S3b2), ubicación física y notas generales. El
+/// cliente no se cambia (el contrato no lo acepta).
 class HojaEditarEncargo extends ConsumerStatefulWidget {
   const HojaEditarEncargo({super.key, required this.encargo});
 
@@ -36,8 +40,10 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
   late final TextEditingController _descripcion;
   late final TextEditingController _ubicacion;
   late final TextEditingController _notas;
+  late final TextEditingController _descuento;
   late DateTime _fecha;
   String? _errorDescripcion;
+  String? _errorDescuento;
   bool _guardando = false;
 
   @override
@@ -47,6 +53,9 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
     _descripcion = TextEditingController(text: encargo.descripcion);
     _ubicacion = TextEditingController(text: encargo.ubicacionFisica ?? '');
     _notas = TextEditingController(text: encargo.notasGenerales ?? '');
+    _descuento = TextEditingController(
+      text: encargo.descuento.esCero ? '' : textoEditable(encargo.descuento),
+    );
     _fecha = encargo.fechaEntregaAcordada;
   }
 
@@ -55,12 +64,34 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
     _descripcion.dispose();
     _ubicacion.dispose();
     _notas.dispose();
+    _descuento.dispose();
     super.dispose();
   }
 
-  Future<void> _guardar() async {
+  /// El descuento solo se edita con el encargo abierto y con trabajos
+  /// (decisiones del usuario); si no, no se envía.
+  bool _descuentoEditable(Monto sumaTrabajos) =>
+      !(widget.encargo.estado?.cerrado ?? false) && sumaTrabajos > Monto.cero;
+
+  Future<void> _guardar(Monto sumaTrabajos) async {
     if (_guardando) return;
-    setState(() => _guardando = true);
+    Monto? descuento;
+    if (_descuentoEditable(sumaTrabajos)) {
+      try {
+        descuento = ReglasEncargo.validarDescuento(
+          ReglasEncargo.leerDescuento(_descuento.text),
+          sumaTrabajos,
+        );
+      } on ValorInvalido catch (error) {
+        setState(() => _errorDescuento = error.mensaje);
+        return;
+      }
+    }
+    setState(() {
+      _guardando = true;
+      _errorDescripcion = null;
+      _errorDescuento = null;
+    });
     try {
       final guardado = await ref
           .read(repositorioEncargosProvider)
@@ -70,12 +101,42 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
             fechaEntregaAcordada: _fecha,
             ubicacion: _ubicacion.text,
             notas: _notas.text,
+            descuento: descuento,
           );
       if (mounted) Navigator.pop(context, guardado);
     } on ValorInvalido catch (error) {
-      setState(() => _errorDescripcion = error.mensaje);
+      setState(() {
+        if (error.codigo == 'DESCUENTO_INVALIDO' || error.codigo == 'MONTO_INVALIDO') {
+          _errorDescuento = error.mensaje;
+        } else {
+          _errorDescripcion = error.mensaje;
+        }
+      });
     } finally {
       if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  /// "Suma de trabajos: S/ 33.00 · Total: S/ 30.00", al ritmo de lo que se
+  /// escribe.
+  String _ayudaDescuento(Monto suma) {
+    final base = 'Suma de trabajos: ${suma.formatear()}';
+    try {
+      final descuento = ReglasEncargo.leerDescuento(_descuento.text);
+      return descuento > suma ? base : '$base · Total: ${(suma - descuento).formatear()}';
+    } on ValorInvalido {
+      return base;
+    }
+  }
+
+  /// Un descuento mayor que la suma se marca al instante, sin esperar a
+  /// "Guardar".
+  String? _excesoDescuento(Monto suma) {
+    try {
+      ReglasEncargo.validarDescuento(ReglasEncargo.leerDescuento(_descuento.text), suma);
+      return null;
+    } on ValorInvalido catch (error) {
+      return error.codigo == 'DESCUENTO_INVALIDO' ? error.mensaje : null;
     }
   }
 
@@ -87,6 +148,12 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
     final reprograma = _fecha != encargo.fechaEntregaAcordada;
     final pasada = reprograma && _fecha.isBefore(hoy);
     String dia(DateTime d) => formatearDia(d, conDiaSemana: true, conAnio: d.year != hoy.year);
+    final trabajos = ref.watch(trabajosProvider(encargo.id)).value ?? const <Trabajo>[];
+    final suma = trabajos.fold(Monto.cero, (total, t) => total + t.precio);
+    final cerrado = encargo.estado?.cerrado ?? false;
+    final motivoCerrado = encargo.estado == EstadoEncargo.entregado
+        ? 'Ya fue entregado'
+        : 'Está cancelado';
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -114,12 +181,11 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
             ),
             const SizedBox(height: Medidas.espacio),
             // Decisión del usuario: entregado o cancelado no se reprograma.
-            if (encargo.estado?.cerrado ?? false)
-              _FechaFija(
-                fecha: dia(encargo.fechaEntregaAcordada),
-                motivo: encargo.estado == EstadoEncargo.entregado
-                    ? 'Ya fue entregado: la fecha no se cambia.'
-                    : 'Está cancelado: la fecha no se cambia.',
+            if (cerrado)
+              _DatoFijo(
+                titulo: 'Fecha de entrega',
+                valor: dia(encargo.fechaEntregaAcordada),
+                motivo: '$motivoCerrado: la fecha no se cambia.',
               )
             else ...[
               SelectorFechaEntrega(
@@ -140,6 +206,26 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
               ],
             ],
             const SizedBox(height: Medidas.espacio),
+            if (cerrado)
+              _DatoFijo(
+                titulo: 'Descuento',
+                valor: encargo.descuento.esCero ? 'Sin descuento' : encargo.descuento.formatear(),
+                motivo: '$motivoCerrado: el descuento no se cambia.',
+              )
+            else if (!_descuentoEditable(suma))
+              Text(
+                'Agrega trabajos para poder aplicar un descuento.',
+                style: tema.textTheme.bodySmall,
+              )
+            else
+              CampoPrecio(
+                controller: _descuento,
+                etiqueta: 'Descuento (opcional)',
+                ayuda: _ayudaDescuento(suma),
+                errorText: _errorDescuento ?? _excesoDescuento(suma),
+                alCambiar: (_) => setState(() => _errorDescuento = null),
+              ),
+            const SizedBox(height: Medidas.espacio),
             TextField(
               controller: _ubicacion,
               textCapitalization: TextCapitalization.sentences,
@@ -158,7 +244,7 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
             ),
             const SizedBox(height: Medidas.espacio),
             FilledButton(
-              onPressed: _guardando ? null : _guardar,
+              onPressed: _guardando ? null : () => _guardar(suma),
               child: Text(pasada ? 'Guardar igual' : 'Guardar'),
             ),
           ],
@@ -168,10 +254,11 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
   }
 }
 
-class _FechaFija extends StatelessWidget {
-  const _FechaFija({required this.fecha, required this.motivo});
+class _DatoFijo extends StatelessWidget {
+  const _DatoFijo({required this.titulo, required this.valor, required this.motivo});
 
-  final String fecha;
+  final String titulo;
+  final String valor;
   final String motivo;
 
   @override
@@ -180,9 +267,9 @@ class _FechaFija extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Fecha de entrega', style: tema.textTheme.titleMedium),
+        Text(titulo, style: tema.textTheme.titleMedium),
         const SizedBox(height: 4),
-        Text(fecha),
+        Text(valor),
         Text(motivo, style: tema.textTheme.bodySmall),
       ],
     );

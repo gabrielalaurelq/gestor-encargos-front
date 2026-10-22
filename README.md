@@ -177,7 +177,7 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 |---|---|---|
 | **S3a** | Cambios no guardados: resolver operaciones apartadas con "Descartar" (Doc 7 v1.2) | ✅ |
 | **S3b1** | Trabajos (catálogo / personalizado) con recálculo local de total y saldo | ✅ |
-| **S3b2** | Descuento en "Editar encargo", validado contra la suma de trabajos | ⏳ |
+| **S3b2** | Descuento en "Editar encargo", validado contra la suma de trabajos | ✅ |
 | **S3c** | Pagos | ⏳ |
 | **S3d** | Objetos recibidos (y vínculo trabajo → objeto) | ⏳ |
 
@@ -200,3 +200,10 @@ Estado del encargo ("Cambiar estado") va en el Sprint 4.
 - **Subida: un `DELETE` con `404` sale de la cola como hecho** (ya no existe, por ejemplo lo borró otro teléfono), en vez de quedar en "Cambios no guardados".
 - `CampoPrecio` y `textoEditable` pasan a `shared/presentation/widgets/` (los usa también la hoja del catálogo).
 - **Deuda menor:** si llega por `/sync` un trabajo de otro teléfono mientras este encargo tiene una operación propia en cola, el total local no lo cuenta hasta la siguiente sincronización tras subir.
+
+## S3b2 — Descuento (`hoja_editar_encargo.dart`, `RepositorioEncargos.editar`)
+
+- Campo **"Descuento (opcional)"** en "Editar encargo", con "Suma de trabajos: S/ 33.00 · Total: S/ 30.00" al ritmo de lo que se escribe. Mayor que la suma → se marca al instante con el mensaje del backend (`DESCUENTO_INVALIDO`) y no se guarda. Vacío = S/ 0 (quita el descuento; viaja `descuento: 0`).
+- **Entregado o cancelado: el descuento se ve fijo con el motivo** (decisión del usuario, igual que la fecha). **Sin trabajos** no hay campo: "Agrega trabajos para poder aplicar un descuento." (decisión del usuario).
+- El repositorio **vuelve a validar contra la suma de trabajos en Drift dentro de la transacción** (no contra lo que mostraba la pantalla), escribe el descuento y llama a `recalcularTotales`; viaja en el mismo `PATCH` que lo demás, solo si cambió.
+- `CampoPrecio` acepta etiqueta, ayuda y `alCambiar`.

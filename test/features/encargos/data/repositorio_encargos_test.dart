@@ -276,4 +276,93 @@ void main() {
       });
     }
   });
+
+  group('descuento (S3b2)', () {
+    Future<Encargo> conTrabajos(List<int> centimos, {String estado = 'EN_PROCESO'}) async {
+      await insertarEncargo(
+        base,
+        id: 'e1',
+        clienteId: 'ana',
+        creadoEn: '2026-10-01T15:00:00.000Z',
+        estado: estado,
+        precioCentimos: centimos.fold<int>(0, (a, b) => a + b),
+        saldoCentimos: centimos.fold<int>(0, (a, b) => a + b),
+      );
+      for (final (i, precio) in centimos.indexed) {
+        await base
+            .into(base.trabajos)
+            .insert(
+              TrabajosCompanion.insert(
+                id: 't$i',
+                creadoEn: '2026-10-01T15:00:00.000Z',
+                actualizadoEn: '2026-10-01T15:00:00.000Z',
+                encargoId: 'e1',
+                descripcion: 'Trabajo $i',
+                precio: precio,
+              ),
+            );
+      }
+      return (await repositorio.observar('e1').first)!;
+    }
+
+    Future<bool> conDescuento(Encargo actual, Monto descuento) => repositorio.editar(
+      actual,
+      descripcion: actual.descripcion,
+      fechaEntregaAcordada: actual.fechaEntregaAcordada,
+      ubicacion: actual.ubicacionFisica ?? '',
+      notas: actual.notasGenerales ?? '',
+      descuento: descuento,
+    );
+
+    test('PRD 2: suma S/33 y descuento S/3 → total S/30; viaja en el PATCH', () async {
+      final actual = await conTrabajos([2000, 1300]);
+      await insertarPago(base, id: 'p1', encargoId: 'e1', centimos: 1000);
+
+      expect(await conDescuento(actual, Monto.desde(3)), isTrue);
+
+      final fila = await base.select(base.encargos).getSingle();
+      expect([fila.precioTotal, fila.descuento, fila.saldoPendiente], [3000, 300, 2000]);
+      expect((await cola()).single.cuerpoJson, {'descuento': 3});
+      expect(fila.actualizadoEn, '2026-10-01T15:00:00.000Z');
+    });
+
+    test('mayor que la suma (de Drift, no de la pantalla): no guarda nada', () async {
+      final actual = await conTrabajos([2000]);
+
+      await expectLater(
+        conDescuento(actual, Monto.desde(25)),
+        throwsA(isA<ValorInvalido>().having((e) => e.codigo, 'codigo', 'DESCUENTO_INVALIDO')),
+      );
+      expect(await cola(), isEmpty);
+      expect((await base.select(base.encargos).getSingle()).descuento, 0);
+    });
+
+    test('quitarlo (S/ 0) también viaja; el mismo valor no', () async {
+      final actual = await conTrabajos([2000]);
+      await conDescuento(actual, Monto.desde(5));
+      final conCinco = (await repositorio.observar('e1').first)!;
+
+      expect(await conDescuento(conCinco, Monto.desde(5)), isFalse);
+      await conDescuento(conCinco, Monto.cero);
+
+      expect(
+        [for (final op in await cola()) op.cuerpoJson],
+        [
+          {'descuento': 5},
+          {'descuento': 0},
+        ],
+      );
+      expect((await base.select(base.encargos).getSingle()).precioTotal, 2000);
+    });
+
+    test('entregado: el descuento no cambia (decisión del usuario)', () async {
+      final actual = await conTrabajos([2000], estado: 'ENTREGADO');
+
+      await expectLater(
+        conDescuento(actual, Monto.desde(1)),
+        throwsA(isA<ValorInvalido>().having((e) => e.codigo, 'codigo', 'ENCARGO_CERRADO')),
+      );
+      expect(await cola(), isEmpty);
+    });
+  });
 }

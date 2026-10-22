@@ -9,6 +9,7 @@ import 'package:gestor_encargos/router/router.dart';
 import 'package:gestor_encargos/router/rutas.dart';
 import 'package:gestor_encargos/shared/domain/dia.dart';
 import 'package:gestor_encargos/shared/domain/telefono.dart';
+import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
 import 'package:gestor_encargos/shared/presentation/formato_fecha.dart';
 import 'package:gestor_encargos/shared/presentation/tema/colores.dart';
 import 'package:gestor_encargos/shared/sync/outbox.dart';
@@ -307,6 +308,90 @@ void main() {
 
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(textContrastGuideline));
+    });
+  });
+
+  group('descuento (S3b2)', () {
+    Finder campo(String etiqueta) => find.widgetWithText(TextField, etiqueta);
+
+    Future<void> trabajos(List<int> centimos) async {
+      for (final (i, precio) in centimos.indexed) {
+        await entorno.base
+            .into(entorno.base.trabajos)
+            .insert(
+              TrabajosCompanion.insert(
+                id: 't$i',
+                creadoEn: '2026-10-01T15:00:00.000Z',
+                actualizadoEn: '2026-10-01T15:00:00.000Z',
+                encargoId: 'e1',
+                descripcion: 'Trabajo $i',
+                precio: precio,
+              ),
+            );
+      }
+    }
+
+    Future<void> abrirHoja(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Editar encargo'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> guardar(WidgetTester tester) async {
+      await tester.ensureVisible(find.widgetWithText(FilledButton, 'Guardar'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Guardar'));
+      await tester.pumpAndSettle();
+    }
+
+    probar('muestra la suma y el total mientras se escribe, y lo guarda', (tester) async {
+      await trabajos([2000, 1300]);
+      await abrirDetalle(tester, precioCentimos: 3300, saldoCentimos: 3300);
+      await abrirHoja(tester);
+
+      expect(find.text('Suma de trabajos: S/ 33.00 · Total: S/ 33.00'), findsOneWidget);
+      await tester.enterText(campo('Descuento (opcional)'), '3');
+      await tester.pump();
+      expect(find.text('Suma de trabajos: S/ 33.00 · Total: S/ 30.00'), findsOneWidget);
+      await guardar(tester);
+
+      expect(find.text('Cambios guardados'), findsOneWidget);
+      expect(find.text('Descuento'), findsOneWidget);
+      expect(find.text('S/ 3.00'), findsOneWidget);
+      expect(find.text('S/ 30.00'), findsAtLeastNWidgets(2), reason: 'total y saldo');
+    });
+
+    probar('mayor que la suma: lo marca al instante y no guarda', (tester) async {
+      await trabajos([2000]);
+      await abrirDetalle(tester, precioCentimos: 2000, saldoCentimos: 2000);
+      await abrirHoja(tester);
+
+      await tester.enterText(campo('Descuento (opcional)'), '25');
+      await tester.pump();
+      expect(
+        find.text('El descuento no puede ser mayor a la suma de los trabajos.'),
+        findsOneWidget,
+      );
+      await guardar(tester);
+
+      expect(find.text('Editar encargo'), findsOneWidget, reason: 'la hoja sigue abierta');
+      final ops = await entorno.base.select(entorno.base.operacionesOutbox).get();
+      expect(ops.where((o) => o.metodo == 'PATCH'), isEmpty);
+    });
+
+    probar('sin trabajos: explica que primero hay que agregarlos', (tester) async {
+      await abrirDetalle(tester);
+      await abrirHoja(tester);
+
+      expect(find.text('Agrega trabajos para poder aplicar un descuento.'), findsOneWidget);
+      expect(campo('Descuento (opcional)'), findsNothing);
+    });
+
+    probar('entregado: el descuento se ve fijo con el motivo', (tester) async {
+      await trabajos([2000]);
+      await abrirDetalle(tester, estado: 'ENTREGADO', descuentoCentimos: 300);
+      await abrirHoja(tester);
+
+      expect(find.text('Ya fue entregado: el descuento no se cambia.'), findsOneWidget);
+      expect(campo('Descuento (opcional)'), findsNothing);
     });
   });
 }

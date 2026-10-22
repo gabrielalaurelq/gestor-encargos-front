@@ -12,17 +12,25 @@ String textoEditable(Monto? monto) {
       : '${monto.centimos ~/ 100}.${decimales.toString().padLeft(2, '0')}';
 }
 
-/// Campo de soles, igual en el catálogo y en los trabajos.
+/// Campo de soles, igual en el catálogo, los trabajos y el descuento.
 class CampoPrecio extends StatelessWidget {
   const CampoPrecio({
     super.key,
     required this.controller,
+    this.etiqueta = 'Precio',
+    this.ayuda,
+    this.alCambiar,
     this.errorText,
     this.autofocus = false,
     this.alEnviar,
   });
 
   final TextEditingController controller;
+  final String etiqueta;
+
+  /// Texto bajo el campo cuando no hay error.
+  final String? ayuda;
+  final ValueChanged<String>? alCambiar;
   final String? errorText;
   final bool autofocus;
   final VoidCallback? alEnviar;
@@ -37,9 +45,12 @@ class CampoPrecio extends StatelessWidget {
       // peruano (S/ 1,234.50) y aquí sería ambigua.
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
       textInputAction: TextInputAction.done,
+      onChanged: alCambiar,
       onSubmitted: alEnviar == null ? null : (_) => alEnviar!(),
       decoration: InputDecoration(
-        labelText: 'Precio',
+        labelText: etiqueta,
+        helperText: ayuda,
+        helperMaxLines: 2,
         prefixText: 'S/ ',
         hintText: '0.00',
         errorText: errorText,

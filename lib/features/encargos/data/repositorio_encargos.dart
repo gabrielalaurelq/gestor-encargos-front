@@ -8,6 +8,7 @@ import '../../../shared/domain/valor_invalido.dart';
 import '../../../shared/infrastructure/db/base_datos.dart';
 import '../../../shared/sync/numeracion.dart';
 import '../../../shared/sync/outbox.dart';
+import '../../../shared/sync/recalculo.dart';
 import '../../clientes/domain/cliente.dart';
 import '../domain/encargo.dart';
 import '../domain/encargo_nuevo.dart';
@@ -110,21 +111,36 @@ class RepositorioEncargos {
   /// (`null` explícito, como hace el backend). Reprogramar mueve solo la
   /// acordada: la prometida queda como testigo (Doc 2, invariantes 6-7).
   ///
-  /// Un encargo entregado o cancelado no se reprograma (decisión del
-  /// usuario); el backend lo permitiría, la app no.
+  /// Un encargo entregado o cancelado no se reprograma ni cambia su
+  /// descuento (decisiones del usuario); el backend lo permitiría, la app no.
+  ///
+  /// [descuento] `null` = no se toca. Se valida contra la suma de trabajos
+  /// **de Drift, dentro de la transacción** (no contra lo que mostraba la
+  /// pantalla) y se recalculan total y saldo (S3b2).
   Future<bool> editar(
     Encargo actual, {
     required String descripcion,
     required DateTime fechaEntregaAcordada,
     required String ubicacion,
     required String notas,
+    Monto? descuento,
   }) async {
     final limpia = ReglasEncargo.validarDescripcion(descripcion);
     final reprograma = fechaEntregaAcordada != actual.fechaEntregaAcordada;
-    if (reprograma && (actual.estado?.cerrado ?? false)) {
+    final nuevoDescuento = descuento == null || descuento == actual.descuento
+        ? null
+        : ReglasEncargo.validarDescuento(descuento, null);
+    final cerrado = actual.estado?.cerrado ?? false;
+    if (reprograma && cerrado) {
       throw const ValorInvalido(
         'ENCARGO_CERRADO',
         'Un encargo entregado o cancelado no se reprograma.',
+      );
+    }
+    if (nuevoDescuento != null && cerrado) {
+      throw const ValorInvalido(
+        'ENCARGO_CERRADO',
+        'Un encargo entregado o cancelado no cambia su descuento.',
       );
     }
     String? opcional(String texto) => texto.trim().isEmpty ? null : texto.trim();
@@ -135,9 +151,13 @@ class RepositorioEncargos {
       if (reprograma) 'fecha_entrega_acordada': isoDesdeDia(fechaEntregaAcordada),
       if (nuevaUbicacion != actual.ubicacionFisica) 'ubicacion_fisica': nuevaUbicacion,
       if (nuevasNotas != actual.notasGenerales) 'notas_generales': nuevasNotas,
+      if (nuevoDescuento != null) 'descuento': nuevoDescuento.soles,
     };
     if (cuerpo.isEmpty) return false;
     return _base.transaction(() async {
+      if (nuevoDescuento != null) {
+        ReglasEncargo.validarDescuento(nuevoDescuento, await _sumaTrabajos(actual.id));
+      }
       final filas = await (_base.update(_base.encargos)..where((e) => e.id.equals(actual.id)))
           .write(
             EncargosCompanion(
@@ -145,9 +165,13 @@ class RepositorioEncargos {
               fechaEntregaAcordada: Value(isoDesdeDia(fechaEntregaAcordada)),
               ubicacionFisica: Value(nuevaUbicacion),
               notasGenerales: Value(nuevasNotas),
+              descuento: nuevoDescuento == null
+                  ? const Value.absent()
+                  : Value(nuevoDescuento.centimos),
             ),
           );
       if (filas == 0) throw StateError('No existe el encargo ${actual.id}');
+      if (nuevoDescuento != null) await recalcularTotales(_base, actual.id);
       await _outbox.encolar(
         OperacionNueva(
           tipo: TiposEncargo.editar,
@@ -160,6 +184,16 @@ class RepositorioEncargos {
       );
       return true;
     });
+  }
+
+  Future<Monto> _sumaTrabajos(String encargoId) async {
+    final suma = _base.trabajos.precio.sum();
+    final fila =
+        await (_base.selectOnly(_base.trabajos)
+              ..addColumns([suma])
+              ..where(_base.trabajos.encargoId.equals(encargoId)))
+            .getSingle();
+    return Monto.desdeCentimos(fila.read(suma) ?? 0);
   }
 
   static Encargo _aEncargo(EncargoFila fila, ClienteFila? cliente) {
