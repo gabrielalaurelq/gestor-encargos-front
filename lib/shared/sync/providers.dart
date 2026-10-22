@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../infrastructure/providers.dart';
 import 'bajada.dart';
+import 'descarte.dart';
 import 'motor_sync.dart';
 import 'numeracion.dart';
 import 'outbox.dart';
@@ -80,3 +81,8 @@ Stream<int> cambiosPendientes(Ref ref) => ref.watch(outboxProvider).pendientes()
 @riverpod
 Stream<List<OperacionApartada>> operacionesApartadas(Ref ref) =>
     ref.watch(outboxProvider).apartadas();
+
+/// "Descartar" una operación apartada (Doc 7 v1.2).
+@Riverpod(keepAlive: true)
+Descarte descarte(Ref ref) =>
+    Descarte(base: ref.watch(baseDatosProvider), api: ref.watch(clienteApiProvider));

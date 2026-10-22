@@ -170,3 +170,17 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 - **Entregado o cancelado no se reprograma** (decisión del usuario; el backend lo permitiría): la fecha se ve con el motivo, el resto sí se edita. El repositorio también lo impide (`ENCARGO_CERRADO`).
 - `PATCH` solo con lo que cambió; ubicación o notas vacías viajan como `null` (se borran); sin cambios no encola nada. "Cambios guardados" al guardar.
 - La etiqueta de estado pasó de la barra superior al inicio del cuerpo: con el lápiz al lado, el número del encargo quedaba sin espacio en 360dp (lo detectó el test de contraste).
+
+## Sprint 3
+
+| Bloque | Contenido | Estado |
+|---|---|---|
+| **S3a** | Cambios no guardados: resolver operaciones apartadas con "Descartar" (Doc 7 v1.2) | ✅ |
+
+## S3a — Cambios no guardados (`lib/shared/sync/descarte.dart`, `lib/features/sincronizacion/`)
+
+- **Decisión del usuario: solo "Descartar"** (reevaluable tras la beta; "Corregir" sería Fase 2). Lo rechazado por el servidor aparece en **Más → "Cambios no guardados (n)"** (solo si hay alguno, nunca un banner) y como `Aviso` en el Detalle del encargo afectado. Cada uno dice qué se intentó ("Editar encargo · #47 · Ana García") y el motivo del servidor.
+- **"Descartar"** (con confirmación) pide **primero** la versión actual al servidor y después, en una transacción, borra la operación y las posteriores sobre la misma fila (y las de sus hijos si era un alta) y deja la fila como en el servidor. Hace falta pedirla: la bajada delta no volvería a traer una fila que no cambió. `404` = alta que nunca existió → se borra la fila local. **Sin conexión no toca nada** y lo explica.
+- Cómo se recupera cada recurso: `GET /clientes/{id}`; servicios recorre `GET /servicios?incluir_inactivos=true` (no hay GET por id); `GET /encargos/{id}` trae el agregado entero: encargo e hijos quedan como en el servidor (se le inyecta el `encargo_id` que el detalle omite), y los hijos locales que el servidor ya no tiene se borran. **Las filas con otras operaciones aún en cola no se pisan** (lo local pendiente gana).
+- **Cada módulo nuevo registra sus tipos en `tiposDeOperacion`** (texto humano + recurso + si es alta); un test verifica que coincidan con los que encolan las features.
+- `flujo_sesion_test` pasó a `testWidgetsConBase`: el menú "Más" ahora lee la base.

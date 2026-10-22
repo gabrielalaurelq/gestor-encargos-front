@@ -9,11 +9,21 @@ import '../../../helpers/entorno_prueba.dart';
 /// La sesión vista por el usuario: de la app recién instalada al Dashboard, y
 /// de Ajustes de vuelta al login.
 void main() {
+  // Las bases se cierran fuera del tiempo simulado (ver `testWidgetsConBase`):
+  // "Más" lee la base desde que muestra los cambios no guardados.
+  final abiertos = <EntornoPrueba>[];
+  tearDown(() async {
+    for (final entorno in abiertos) {
+      await entorno.cerrar();
+    }
+    abiertos.clear();
+  });
+
   Future<EntornoPrueba> abrirApp(WidgetTester tester, EntornoPrueba entorno) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    addTearDown(entorno.cerrar);
+    abiertos.add(entorno);
 
     await tester.pumpWidget(
       ProviderScope(overrides: entorno.overrides, child: const GestorEncargosApp()),
@@ -38,14 +48,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('sin sesión arranca en el login, sin la barra inferior', (tester) async {
+  testWidgetsConBase('sin sesión arranca en el login, sin la barra inferior', (tester) async {
     await abrirApp(tester, EntornoPrueba());
 
     expect(find.text('Continuar con Google'), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
   });
 
-  testWidgets('"Continuar con Google" lleva directo al Dashboard (Doc 6: sin tour)', (
+  testWidgetsConBase('"Continuar con Google" lleva directo al Dashboard (Doc 6: sin tour)', (
     tester,
   ) async {
     final entorno = EntornoPrueba()..loginAceptado();
@@ -58,7 +68,7 @@ void main() {
     expect(find.byType(NavigationBar), findsOneWidget);
   });
 
-  testWidgets('sin red, explica que la primera vez hace falta internet', (tester) async {
+  testWidgetsConBase('sin red, explica que la primera vez hace falta internet', (tester) async {
     final entorno = EntornoPrueba()..backend.sinRed = true;
     await abrirApp(tester, entorno);
 
@@ -69,7 +79,9 @@ void main() {
     expect(find.text('Continuar con Google'), findsOneWidget, reason: 'puede reintentar');
   });
 
-  testWidgets('cerrar sesión desde Ajustes, con confirmación, vuelve al login', (tester) async {
+  testWidgetsConBase('cerrar sesión desde Ajustes, con confirmación, vuelve al login', (
+    tester,
+  ) async {
     final entorno = EntornoPrueba.conSesion();
     entorno.backend.cuando('POST /auth/logout', (_) => const Respuesta(204));
     await abrirApp(tester, entorno);
@@ -81,7 +93,7 @@ void main() {
     expect(await entorno.tokens.leer(), isNull);
   });
 
-  testWidgets('"Cancelar" en la confirmación no cierra nada', (tester) async {
+  testWidgetsConBase('"Cancelar" en la confirmación no cierra nada', (tester) async {
     final entorno = EntornoPrueba.conSesion();
     await abrirApp(tester, entorno);
     await irAAjustes(tester);
@@ -95,7 +107,7 @@ void main() {
     expect(entorno.backend.peticiones, isEmpty);
   });
 
-  testWidgets('con cambios sin enviar, explica por qué no cierra', (tester) async {
+  testWidgetsConBase('con cambios sin enviar, explica por qué no cierra', (tester) async {
     final entorno = EntornoPrueba.conSesion()..pendientes = 2;
     await abrirApp(tester, entorno);
     await irAAjustes(tester);
@@ -108,7 +120,7 @@ void main() {
     expect(find.widgetWithText(AppBar, 'Ajustes'), findsOneWidget);
   });
 
-  testWidgets('el login cumple las guías de área táctil y contraste, con el error visible', (
+  testWidgetsConBase('el login cumple las guías de área táctil y contraste, con el error visible', (
     tester,
   ) async {
     final handle = tester.ensureSemantics();
@@ -122,7 +134,7 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('el login aguanta la letra del sistema al 200% sin desbordes', (tester) async {
+  testWidgetsConBase('el login aguanta la letra del sistema al 200% sin desbordes', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await abrirApp(tester, EntornoPrueba()..backend.sinRed = true);
@@ -133,7 +145,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('si la sesión expira en uso, vuelve al login', (tester) async {
+  testWidgetsConBase('si la sesión expira en uso, vuelve al login', (tester) async {
     final entorno = EntornoPrueba.conSesion();
     entorno.backend.cuando('POST /auth/logout', (_) => Respuesta.error(401, 'TOKEN_EXPIRADO'));
     entorno.backend.cuando('POST /auth/refresh', (_) => Respuesta.error(401, 'SESION_INVALIDA'));

@@ -8,7 +8,9 @@ import '../../../shared/domain/monto.dart';
 import '../../../shared/presentation/formato_fecha.dart';
 import '../../../shared/presentation/tema/colores.dart';
 import '../../../shared/presentation/tema/tema.dart';
+import '../../../shared/presentation/widgets/aviso.dart';
 import '../../../shared/presentation/widgets/mensaje_pantalla.dart';
+import '../../../shared/sync/providers.dart';
 import '../application/encargos.dart';
 import '../domain/encargo.dart';
 import 'etiqueta_estado.dart';
@@ -26,7 +28,12 @@ class PantallaDetalleEncargo extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return switch (ref.watch(encargoProvider(encargoId))) {
-      AsyncValue(:final Encargo value) => _Detalle(encargo: value),
+      AsyncValue(:final Encargo value) => _Detalle(
+        encargo: value,
+        rechazado: (ref.watch(operacionesApartadasProvider).value ?? const []).any(
+          (op) => op.encargoId == encargoId || op.entidadId == encargoId,
+        ),
+      ),
       AsyncError() => Scaffold(
         appBar: AppBar(),
         body: MensajePantalla.error(
@@ -48,9 +55,12 @@ class PantallaDetalleEncargo extends ConsumerWidget {
 }
 
 class _Detalle extends StatelessWidget {
-  const _Detalle({required this.encargo});
+  const _Detalle({required this.encargo, required this.rechazado});
 
   final Encargo encargo;
+
+  /// Tiene un cambio que el servidor rechazó (Doc 7 v1.2).
+  final bool rechazado;
 
   Future<void> _editar(BuildContext context) async {
     final guardado = await HojaEditarEncargo.abrir(context, encargo);
@@ -87,6 +97,16 @@ class _Detalle extends StatelessWidget {
             child: EtiquetaEstado(codigo: encargo.codigoEstado),
           ),
           const SizedBox(height: 12),
+          if (rechazado) ...[
+            Aviso(
+              texto: 'Un cambio de este encargo no se guardó.',
+              accion: OutlinedButton(
+                onPressed: () => context.push(Rutas.cambiosNoGuardados),
+                child: const Text('Ver'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Card(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(

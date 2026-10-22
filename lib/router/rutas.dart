@@ -21,6 +21,10 @@ abstract final class Rutas {
 
   // Profundidad 2: pantalla completa, fuera del shell.
   static const nuevoEncargo = '/encargos/nuevo';
+
+  /// Lo que el servidor rechazó (Doc 7 v1.2). Se llega desde "Más" y desde el
+  /// detalle de un encargo afectado, así que vive fuera del shell.
+  static const cambiosNoGuardados = '/cambios-no-guardados';
   static String cliente(String id) => '/clientes/$id';
 
   /// Crear Encargo con el cliente ya elegido, desde su ficha. Crear Encargo

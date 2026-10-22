@@ -7,6 +7,7 @@ import '../features/clientes/presentation/pantalla_ficha_cliente.dart';
 import '../features/encargos/presentation/pantalla_detalle_encargo.dart';
 import '../features/encargos/presentation/pantalla_nuevo_encargo.dart';
 import '../features/servicios/presentation/pantalla_catalogo.dart';
+import '../features/sincronizacion/presentation/pantalla_cambios_no_guardados.dart';
 import '../features/sesion/application/sesion.dart';
 import '../features/sesion/domain/estado_sesion.dart';
 import '../features/sesion/presentation/pantalla_ajustes.dart';
@@ -130,6 +131,10 @@ GoRouter router(Ref ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: Rutas.cambiosNoGuardados,
+        builder: (_, _) => const PantallaCambiosNoGuardados(),
       ),
       // `nuevo` va antes que `:id` para que no se tome como un id.
       GoRoute(
