@@ -10,6 +10,7 @@ import '../../../shared/sync/outbox.dart';
 import '../../../shared/sync/recalculo.dart';
 import '../domain/estado_encargo.dart';
 import '../domain/pago.dart';
+import 'estado_local.dart';
 
 abstract final class TiposPago {
   static const registrar = 'registrar_pago';
@@ -156,14 +157,7 @@ class RepositorioPagos {
   });
 
   Future<void> _comprobarNoCancelado(String encargoId) async {
-    final estado =
-        await (_base.selectOnly(_base.encargos)
-              ..addColumns([_base.encargos.estado])
-              ..where(_base.encargos.id.equals(encargoId)))
-            .map((fila) => fila.read(_base.encargos.estado))
-            .getSingleOrNull();
-    if (estado == null) throw StateError('No existe el encargo $encargoId');
-    if (EstadoEncargo.desde(estado) == EstadoEncargo.cancelado) {
+    if (await leerEstadoLocal(_base, encargoId) == EstadoEncargo.cancelado) {
       throw const ValorInvalido('ENCARGO_CERRADO', 'Un encargo cancelado no cambia sus pagos.');
     }
   }

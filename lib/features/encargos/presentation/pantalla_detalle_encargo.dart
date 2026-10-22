@@ -15,13 +15,14 @@ import '../application/encargos.dart';
 import '../domain/encargo.dart';
 import 'etiqueta_estado.dart';
 import 'hoja_editar_encargo.dart';
+import 'seccion_objetos.dart';
 import 'seccion_pagos.dart';
 import 'seccion_trabajos.dart';
 
 /// Detalle de Encargo (Doc 6, pantalla 6): la cabecera (cliente,
 /// descripción, entrega, ubicación, total y saldo, como en el wireframe) y las
-/// secciones Trabajos (S3b1) y Pagos (S3c). Las demás secciones (Objetos,
-/// Notas, Fotos) y las acciones ("Cambiar estado", WhatsApp) se suman en los
+/// secciones Objetos (S3d1), Trabajos (S3b1) y Pagos (S3c), en el orden del
+/// Doc 6. Las demás secciones (Notas, Fotos) y las acciones ("Cambiar estado", WhatsApp) se suman en los
 /// Sprints 3-5.
 class PantallaDetalleEncargo extends ConsumerWidget {
   const PantallaDetalleEncargo({super.key, required this.encargoId});
@@ -129,6 +130,8 @@ class _Detalle extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: Medidas.espacio),
+          SeccionObjetos(encargo: encargo),
           const SizedBox(height: Medidas.espacio),
           SeccionTrabajos(encargo: encargo),
           const SizedBox(height: Medidas.espacio),

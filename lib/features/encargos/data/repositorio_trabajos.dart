@@ -8,8 +8,8 @@ import '../../../shared/sync/colecciones.dart';
 import '../../../shared/sync/outbox.dart';
 import '../../../shared/sync/recalculo.dart';
 import '../../servicios/domain/servicio.dart';
-import '../domain/estado_encargo.dart';
 import '../domain/trabajo.dart';
+import 'estado_local.dart';
 
 abstract final class TiposTrabajo {
   static const crear = 'crear_trabajo';
@@ -172,14 +172,7 @@ class RepositorioTrabajos {
   });
 
   Future<void> _comprobarAbierto(String encargoId) async {
-    final estado =
-        await (_base.selectOnly(_base.encargos)
-              ..addColumns([_base.encargos.estado])
-              ..where(_base.encargos.id.equals(encargoId)))
-            .map((fila) => fila.read(_base.encargos.estado))
-            .getSingleOrNull();
-    if (estado == null) throw StateError('No existe el encargo $encargoId');
-    if (EstadoEncargo.desde(estado)?.cerrado ?? false) {
+    if ((await leerEstadoLocal(_base, encargoId))?.cerrado ?? false) {
       throw const ValorInvalido(
         'ENCARGO_CERRADO',
         'Un encargo entregado o cancelado no cambia sus trabajos.',
@@ -191,6 +184,7 @@ class RepositorioTrabajos {
     id: fila.id,
     encargoId: fila.encargoId,
     servicioId: fila.servicioId,
+    objetoRecibidoId: fila.objetoRecibidoId,
     descripcion: fila.descripcion,
     precio: Monto.desdeCentimos(fila.precio),
   );

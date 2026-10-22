@@ -4,9 +4,11 @@ import '../../../shared/domain/origen_pago.dart';
 import '../../../shared/infrastructure/providers.dart';
 import '../../../shared/sync/providers.dart';
 import '../data/repositorio_encargos.dart';
+import '../data/repositorio_objetos.dart';
 import '../data/repositorio_pagos.dart';
 import '../data/repositorio_trabajos.dart';
 import '../domain/encargo.dart';
+import '../domain/objeto_recibido.dart';
 import '../domain/pago.dart';
 import '../domain/trabajo.dart';
 
@@ -45,3 +47,12 @@ Stream<List<Pago>> pagos(Ref ref, String encargoId) =>
 @riverpod
 Stream<List<OrigenPago>> origenesActivos(Ref ref) =>
     ref.watch(repositorioPagosProvider).observarOrigenesActivos();
+
+@Riverpod(keepAlive: true)
+RepositorioObjetos repositorioObjetos(Ref ref) =>
+    RepositorioObjetos(base: ref.watch(baseDatosProvider), outbox: ref.watch(outboxProvider));
+
+/// Los objetos recibidos de un encargo, en el orden en que se agregaron.
+@riverpod
+Stream<List<ObjetoRecibido>> objetos(Ref ref, String encargoId) =>
+    ref.watch(repositorioObjetosProvider).observar(encargoId);

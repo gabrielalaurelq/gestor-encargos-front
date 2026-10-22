@@ -9,6 +9,7 @@ class Trabajo {
     required this.id,
     required this.encargoId,
     required this.servicioId,
+    this.objetoRecibidoId,
     required this.descripcion,
     required this.precio,
   });
@@ -18,6 +19,9 @@ class Trabajo {
 
   /// Solo rastro de procedencia: el precio ya quedó copiado.
   final String? servicioId;
+
+  /// El objeto recibido al que corresponde, si se vinculó (Caso 6).
+  final String? objetoRecibidoId;
   final String descripcion;
   final Monto precio;
 

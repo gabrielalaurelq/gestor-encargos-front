@@ -179,7 +179,8 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 | **S3b1** | Trabajos (catálogo / personalizado) con recálculo local de total y saldo | ✅ |
 | **S3b2** | Descuento en "Editar encargo", validado contra la suma de trabajos | ✅ |
 | **S3c** | Pagos (S3c1 backend `GET /origenes-pago` + Docs 5/7; S3c2 app) | ✅ |
-| **S3d** | Objetos recibidos (y vínculo trabajo → objeto) | ⏳ |
+| **S3d1** | Objetos recibidos (sin foto: llega con Fotografías, Doc 11 v1.3) | ✅ |
+| **S3d2** | Vínculo trabajo → objeto y Trabajos agrupados por objeto | ⏳ |
 
 Estado del encargo ("Cambiar estado") va en el Sprint 4.
 
@@ -216,3 +217,12 @@ Estado del encargo ("Cambiar estado") va en el Sprint 4.
 - Hoja **"Registrar pago"**: monto con atajo **"Saldo completo (S/ X)"**, medio de pago en chips **sin ninguno marcado** (un valor por defecto se aceptaría sin mirar y ensuciaría la Caja), tipo Adelanto/Pago **propuesto según el estado** (Adelanto antes de LISTO, Pago desde LISTO; decisión del usuario) y la fecha del teléfono solo mostrada ("Hoy, 22 oct"). Sin catálogo bajado: "Necesitas conexión una vez para cargar los medios de pago."
 - **Entregado: sí se cobra** (se entrega fiado, Doc 2 invariante 10); **cancelado: los pagos solo se ven** (decisión del usuario). El repositorio lo comprueba contra la fila (`ENCARGO_CERRADO`), y también el origen activo (`ORIGEN_PAGO_INVALIDO`) y el monto > 0 (`PAGO_MONTO_INVALIDO`). Un pago mayor que el saldo **se registra** y queda a favor del cliente (PRD 5).
 - `fecha` = día en Lima del reloj del teléfono, enviada en el `POST` (Doc 5 v1.4). Tipos `registrar_pago` / `eliminar_pago` registrados en `tiposDeOperacion`; el Descarte ya restauraba los pagos con `GET /encargos/{id}`.
+
+## S3d1 — Objetos recibidos (`lib/features/encargos/`)
+
+- Sección **"Objetos recibidos"** en el Detalle, **antes de Trabajos** (orden del Doc 6). Cada fila dice cuántos trabajos tiene ("2 trabajos", "sin trabajos"). Sin objetos: "Ningún objeto registrado.", sin tono de error (Caso 3).
+- Una sola hoja (`HojaObjeto`) para **agregar** (solo descripción) y para **editar/eliminar**. Eliminar avisa: "Sus 2 trabajos se quedan, sin objeto."
+- **Cascada local igual a la del backend**: eliminar un objeto borra sus fotos y desvincula sus trabajos (no los borra), en la misma transacción. Sin recálculo: un objeto no tiene precio.
+- **Entregado o cancelado: los objetos se ven pero no se cambian** (decisión del usuario, misma regla que Trabajos), comprobado en el repositorio (`ENCARGO_CERRADO`).
+- **Sin foto** (decisión del usuario): la foto del objeto llega con Fotografías en el Sprint 7 (Doc 11 v1.3).
+- Tipos `crear_objeto` / `editar_objeto` / `eliminar_objeto` en `tiposDeOperacion`. `Trabajo` ahora lleva `objetoRecibidoId` (lo usa el conteo; el vínculo editable es el S3d2). `leerEstadoLocal` (`data/estado_local.dart`) reemplaza la consulta repetida en Trabajos, Pagos y Objetos.

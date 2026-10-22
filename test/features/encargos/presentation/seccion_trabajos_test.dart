@@ -86,6 +86,13 @@ void main() {
     );
     unawaited(contenedor(tester).read(routerProvider).push(Rutas.encargo('e1')));
     await tester.pumpAndSettle();
+    // Debajo de la cabecera y de Objetos recibidos.
+    await tester.scrollUntilVisible(
+      find.text('Trabajos'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
   }
 
   Future<void> tocar(WidgetTester tester, Finder finder) async {
