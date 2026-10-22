@@ -7,6 +7,7 @@ import 'bajada.dart';
 import 'descarte.dart';
 import 'motor_sync.dart';
 import 'numeracion.dart';
+import 'origenes_pago.dart';
 import 'outbox.dart';
 import 'subida.dart';
 
@@ -24,6 +25,10 @@ Outbox outbox(Ref ref) {
 @Riverpod(keepAlive: true)
 Numeracion numeracion(Ref ref) =>
     Numeracion(base: ref.watch(baseDatosProvider), api: ref.watch(clienteApiProvider));
+
+@Riverpod(keepAlive: true)
+OrigenesPagoRemotos origenesPagoRemotos(Ref ref) =>
+    OrigenesPagoRemotos(base: ref.watch(baseDatosProvider), api: ref.watch(clienteApiProvider));
 
 @Riverpod(keepAlive: true)
 Bajada bajada(Ref ref) => Bajada(
@@ -49,6 +54,7 @@ MotorSync motorSync(Ref ref) {
     subida: ref.watch(subidaProvider),
     numeracion: ref.watch(numeracionProvider),
     tokens: ref.watch(almacenTokensProvider),
+    origenes: ref.watch(origenesPagoRemotosProvider),
   );
   final disparadores = [
     ref.watch(conectividadProvider).recuperada.listen((_) => unawaited(motor.sincronizar())),

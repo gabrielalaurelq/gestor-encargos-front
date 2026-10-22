@@ -8,6 +8,7 @@ import 'package:gestor_encargos/shared/infrastructure/http/error_api.dart';
 import 'package:gestor_encargos/shared/sync/bajada.dart';
 import 'package:gestor_encargos/shared/sync/motor_sync.dart';
 import 'package:gestor_encargos/shared/sync/numeracion.dart';
+import 'package:gestor_encargos/shared/sync/origenes_pago.dart';
 import 'package:gestor_encargos/shared/sync/outbox.dart';
 import 'package:gestor_encargos/shared/sync/subida.dart';
 
@@ -266,6 +267,52 @@ void main() {
       ],
       [5, 10, 20, 40, 80, 160, 300, 300],
     );
+  });
+  group('orígenes de pago (Doc 7 v1.3)', () {
+    late MotorSync conOrigenes;
+
+    setUp(() {
+      final api = clienteApiDePrueba(backend);
+      final numeracion = Numeracion(base: base, api: api);
+      conOrigenes = MotorSync(
+        bajada: Bajada(api: api, base: base, idsProtegidos: outbox.idsProtegidos),
+        subida: Subida(api: api, outbox: outbox, preparar: numeracion.numerarSiFalta),
+        numeracion: numeracion,
+        tokens: tokens,
+        origenes: OrigenesPagoRemotos(base: base, api: api),
+        espera: (_) => const Duration(hours: 1),
+      );
+    });
+    tearDown(() => conOrigenes.cerrar());
+
+    test('se bajan después de /sync, una sola vez por arranque', () async {
+      backend.cuando(
+        'GET /origenes-pago',
+        (_) => const Respuesta(200, [
+          {'id': 1, 'nombre': 'Efectivo', 'activo': true},
+        ]),
+      );
+
+      await conOrigenes.sincronizar();
+      await conOrigenes.sincronizar();
+
+      expect(enviadas().where((e) => !e.startsWith('POST')), [
+        'GET /sync',
+        'GET /origenes-pago',
+        'GET /sync',
+      ]);
+      expect(await base.select(base.origenesPago).get(), hasLength(1));
+    });
+
+    test('si fallan, la vuelta igual cuenta como completa', () async {
+      backend.cuando('GET /origenes-pago', (_) => Respuesta.error(404, 'NO_ENCONTRADO'));
+
+      await conOrigenes.sincronizar();
+
+      expect(conOrigenes.estado.ultimoError, isNull);
+      expect(conOrigenes.estado.ultimaCompleta, isNotNull);
+      expect(conOrigenes.estado.proximoIntento, isNull);
+    });
   });
 }
 

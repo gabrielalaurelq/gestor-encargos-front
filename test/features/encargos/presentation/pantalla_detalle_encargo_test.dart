@@ -160,6 +160,12 @@ void main() {
 
   probar('notas generales, solo si las hay', (tester) async {
     await abrirDetalle(tester, notas: 'Llamar antes de entregar');
+    // Van al final, debajo de Trabajos y Pagos.
+    await tester.scrollUntilVisible(
+      find.text('Notas generales'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.text('Notas generales'), findsOneWidget);
     expect(find.text('Llamar antes de entregar'), findsOneWidget);

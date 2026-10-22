@@ -5,6 +5,7 @@ import '../infrastructure/auth/almacen_tokens.dart';
 import '../infrastructure/http/error_api.dart';
 import 'bajada.dart';
 import 'numeracion.dart';
+import 'origenes_pago.dart';
 import 'subida.dart';
 
 /// Lo que la UI puede mostrar de la sincronización: un ícono discreto, nunca
@@ -41,7 +42,7 @@ Duration esperaPorDefecto(int fallos) =>
 /// Orquesta el motor: cuándo sincronizar y en qué orden.
 ///
 /// **Una vuelta:** reservar números si hacen falta → subir la Outbox → bajar
-/// de `/sync`. Primero se sube: así lo que baja ya incluye los cambios
+/// de `/sync` → el catálogo de orígenes de pago, si hace falta. Primero se sube: así lo que baja ya incluye los cambios
 /// propios ya aceptados, y las filas que dejaron de estar protegidas se
 /// refrescan en esa misma vuelta.
 ///
@@ -55,6 +56,7 @@ class MotorSync {
     required this._subida,
     required this._numeracion,
     required this._tokens,
+    this._origenes,
     Duration Function(int fallos)? espera,
     DateTime Function()? reloj,
   }) : _espera = espera ?? esperaPorDefecto,
@@ -64,6 +66,7 @@ class MotorSync {
   final Subida _subida;
   final Numeracion _numeracion;
   final AlmacenTokens _tokens;
+  final OrigenesPagoRemotos? _origenes;
   final Duration Function(int fallos) _espera;
   final DateTime Function() _reloj;
 
@@ -115,6 +118,7 @@ class MotorSync {
       await _reservarNumeros();
       await _subida.subir();
       await _bajada.bajar();
+      await _actualizarOrigenes();
       _fallos = 0;
       _emitir(EstadoSync(ultimaCompleta: _reloj()));
     } on NoAutenticado catch (error) {
@@ -147,6 +151,17 @@ class MotorSync {
       await _numeracion.reservarSiHaceFalta();
     } on ErrorApi catch (error) {
       if (!error.esPermanente) rethrow;
+    }
+  }
+
+  /// Un fallo aquí no detiene la vuelta ni la marca como fallida (Doc 7
+  /// v1.3): los datos del negocio ya están al día, y sin catálogo solo falta
+  /// poder registrar pagos. Se reintenta en la próxima vuelta.
+  Future<void> _actualizarOrigenes() async {
+    try {
+      await _origenes?.actualizarSiHaceFalta();
+    } on ErrorApi {
+      // Sin red o un backend sin el endpoint: la próxima vuelta lo intenta.
     }
   }
 

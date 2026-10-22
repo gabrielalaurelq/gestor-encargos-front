@@ -62,3 +62,17 @@ Future<void> insertarPago(
         fecha: '2026-10-20',
       ),
     );
+
+/// El catálogo de la semilla del backend (Doc 4), como si ya se hubiera
+/// bajado de `GET /origenes-pago`. Los nombres en [inactivos] van
+/// desactivados.
+Future<void> insertarOrigenes(BaseDatos base, {Set<String> inactivos = const {}}) => base.batch(
+  (lote) => lote.insertAll(base.origenesPago, [
+    for (final (i, nombre) in ['Efectivo', 'Transferencia', 'Yape', 'Plin'].indexed)
+      OrigenesPagoCompanion.insert(
+        id: Value(i + 1),
+        nombre: nombre,
+        activo: !inactivos.contains(nombre),
+      ),
+  ]),
+);

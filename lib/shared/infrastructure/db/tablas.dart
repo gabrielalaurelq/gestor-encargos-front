@@ -184,3 +184,21 @@ class OperacionesOutbox extends Table {
   TextColumn get apartadaCodigo => text().nullable()();
   TextColumn get apartadaMensaje => text().nullable()();
 }
+
+/// Catálogo `origenes_pago` del sistema (Efectivo, Transferencia, Yape,
+/// Plin), bajado de `GET /origenes-pago` (Doc 5 v1.6, Doc 7 v1.3). No es una
+/// colección de `/sync`: no pertenece a ningún negocio, así que no tiene
+/// marcas de versión y se reemplaza entero. Guarda también los desactivados:
+/// un pago viejo sigue nombrando su origen.
+@DataClassName('OrigenPagoFila')
+class OrigenesPago extends Table {
+  @override
+  String get tableName => 'origenes_pago';
+
+  IntColumn get id => integer()();
+  TextColumn get nombre => text()();
+  BoolColumn get activo => boolean()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}

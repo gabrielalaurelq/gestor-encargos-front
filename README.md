@@ -178,7 +178,7 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 | **S3a** | Cambios no guardados: resolver operaciones apartadas con "Descartar" (Doc 7 v1.2) | ✅ |
 | **S3b1** | Trabajos (catálogo / personalizado) con recálculo local de total y saldo | ✅ |
 | **S3b2** | Descuento en "Editar encargo", validado contra la suma de trabajos | ✅ |
-| **S3c** | Pagos | ⏳ |
+| **S3c** | Pagos (S3c1 backend `GET /origenes-pago` + Docs 5/7; S3c2 app) | ✅ |
 | **S3d** | Objetos recibidos (y vínculo trabajo → objeto) | ⏳ |
 
 Estado del encargo ("Cambiar estado") va en el Sprint 4.
@@ -207,3 +207,12 @@ Estado del encargo ("Cambiar estado") va en el Sprint 4.
 - **Entregado o cancelado: el descuento se ve fijo con el motivo** (decisión del usuario, igual que la fecha). **Sin trabajos** no hay campo: "Agrega trabajos para poder aplicar un descuento." (decisión del usuario).
 - El repositorio **vuelve a validar contra la suma de trabajos en Drift dentro de la transacción** (no contra lo que mostraba la pantalla), escribe el descuento y llama a `recalcularTotales`; viaja en el mismo `PATCH` que lo demás, solo si cambió.
 - `CampoPrecio` acepta etiqueta, ayuda y `alCambiar`.
+
+## S3c — Pagos (`lib/features/encargos/`, `lib/shared/sync/origenes_pago.dart`)
+
+- **Orígenes de pago** (decisión del usuario: endpoint, no ids fijos): tabla Drift `origenes_pago` fuera de `/sync`, bajada de `GET /origenes-pago` (backend, Doc 5 v1.6) al final de la **primera vuelta con éxito de cada arranque** y en cualquier vuelta mientras esté vacía. Se reemplaza entera; guarda los desactivados para nombrar pagos viejos. Si falla, la vuelta cuenta como completa (Doc 7 v1.3). Se conserva en el `410` y se borra al cerrar sesión.
+- **Esquema editado en el lugar**: aún no hay release publicado, así que `schemaVersion` sigue en 1 (ver `base_datos.dart`). Desde el primer build en Google Play, una tabla nueva es una migración.
+- Sección **"Pagos"** en el Detalle, debajo de Trabajos: "22 oct · Yape · Adelanto  S/ 100.00". Un pago no se edita (sin `PATCH`): **tocarlo ofrece eliminarlo**, con confirmación; el saldo vuelve a subir.
+- Hoja **"Registrar pago"**: monto con atajo **"Saldo completo (S/ X)"**, medio de pago en chips **sin ninguno marcado** (un valor por defecto se aceptaría sin mirar y ensuciaría la Caja), tipo Adelanto/Pago **propuesto según el estado** (Adelanto antes de LISTO, Pago desde LISTO; decisión del usuario) y la fecha del teléfono solo mostrada ("Hoy, 22 oct"). Sin catálogo bajado: "Necesitas conexión una vez para cargar los medios de pago."
+- **Entregado: sí se cobra** (se entrega fiado, Doc 2 invariante 10); **cancelado: los pagos solo se ven** (decisión del usuario). El repositorio lo comprueba contra la fila (`ENCARGO_CERRADO`), y también el origen activo (`ORIGEN_PAGO_INVALIDO`) y el monto > 0 (`PAGO_MONTO_INVALIDO`). Un pago mayor que el saldo **se registra** y queda a favor del cliente (PRD 5).
+- `fecha` = día en Lima del reloj del teléfono, enviada en el `POST` (Doc 5 v1.4). Tipos `registrar_pago` / `eliminar_pago` registrados en `tiposDeOperacion`; el Descarte ya restauraba los pagos con `GET /encargos/{id}`.

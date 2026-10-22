@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/clientes/data/repositorio_clientes.dart';
 import 'package:gestor_encargos/features/encargos/data/repositorio_encargos.dart';
+import 'package:gestor_encargos/features/encargos/data/repositorio_pagos.dart';
 import 'package:gestor_encargos/features/encargos/data/repositorio_trabajos.dart';
 import 'package:gestor_encargos/features/servicios/data/repositorio_servicios.dart';
 import 'package:gestor_encargos/shared/domain/monto.dart';
@@ -62,6 +63,8 @@ void main() {
         TiposTrabajo.crear,
         TiposTrabajo.editar,
         TiposTrabajo.eliminar,
+        TiposPago.registrar,
+        TiposPago.eliminar,
       ]),
     );
   });

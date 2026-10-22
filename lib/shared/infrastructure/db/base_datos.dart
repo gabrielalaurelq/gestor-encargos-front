@@ -19,8 +19,9 @@ class Metadatos extends Table {
 }
 
 /// La base local (Doc 3: Drift es la fuente de verdad del dispositivo): las
-/// tablas espejo de las 9 colecciones de `/sync` (`tablas.dart`) y los
-/// tablas propias del dispositivo: la Outbox y los metadatos.
+/// tablas espejo de las 9 colecciones de `/sync` (`tablas.dart`), el catálogo
+/// de orígenes de pago y las tablas propias del dispositivo: la Outbox y los
+/// metadatos.
 ///
 /// **Esquema editable hasta el primer release.** Mientras ningún teléfono
 /// tenga la app instalada, el esquema se cambia en el lugar y [schemaVersion]
@@ -45,6 +46,7 @@ class Metadatos extends Table {
     Pagos,
     Notas,
     Fotos,
+    OrigenesPago,
     OperacionesOutbox,
   ],
 )

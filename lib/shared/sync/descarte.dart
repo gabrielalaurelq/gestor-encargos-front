@@ -24,8 +24,8 @@ class TipoDeOperacion {
 }
 
 /// Los mismos códigos que encolan las features (`TiposCliente`,
-/// `TiposServicio`, `TiposEncargo`, `TiposTrabajo`); `descarte_test.dart` comprueba que
-/// coincidan.
+/// `TiposServicio`, `TiposEncargo`, `TiposTrabajo`, `TiposPago`);
+/// `descarte_test.dart` comprueba que coincidan.
 const tiposDeOperacion = <String, TipoDeOperacion>{
   'crear_cliente': TipoDeOperacion('Agregar cliente', Recurso.cliente, alta: true),
   'editar_cliente': TipoDeOperacion('Editar cliente', Recurso.cliente),
@@ -36,6 +36,8 @@ const tiposDeOperacion = <String, TipoDeOperacion>{
   'crear_trabajo': TipoDeOperacion('Agregar trabajo', Recurso.encargo, alta: true),
   'editar_trabajo': TipoDeOperacion('Editar trabajo', Recurso.encargo),
   'eliminar_trabajo': TipoDeOperacion('Eliminar trabajo', Recurso.encargo),
+  'registrar_pago': TipoDeOperacion('Registrar pago', Recurso.encargo, alta: true),
+  'eliminar_pago': TipoDeOperacion('Eliminar pago', Recurso.encargo),
 };
 
 /// "Descartar" una operación apartada (Doc 7 v1.2, decisión del usuario):
