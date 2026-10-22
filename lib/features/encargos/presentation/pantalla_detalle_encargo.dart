@@ -12,6 +12,7 @@ import '../../../shared/presentation/widgets/mensaje_pantalla.dart';
 import '../application/encargos.dart';
 import '../domain/encargo.dart';
 import 'etiqueta_estado.dart';
+import 'hoja_editar_encargo.dart';
 
 /// Detalle de Encargo (Doc 6, pantalla 6), por ahora su cabecera: cliente,
 /// descripción, entrega, ubicación, total y saldo, como en el wireframe. Las
@@ -51,6 +52,14 @@ class _Detalle extends StatelessWidget {
 
   final Encargo encargo;
 
+  Future<void> _editar(BuildContext context) async {
+    final guardado = await HojaEditarEncargo.abrir(context, encargo);
+    if (guardado != true || !context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Cambios guardados')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
@@ -61,15 +70,23 @@ class _Detalle extends StatelessWidget {
       appBar: AppBar(
         title: Text(numero == null ? 'Encargo · sin número aún' : 'Encargo #$numero'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: Medidas.espacio),
-            child: Center(child: EtiquetaEstado(codigo: encargo.codigoEstado)),
+          IconButton(
+            tooltip: 'Editar encargo',
+            onPressed: () => _editar(context),
+            icon: const Icon(Icons.edit_outlined),
           ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(Medidas.espacio),
         children: [
+          // En el wireframe va en la barra; con el lápiz al lado, el número
+          // quedaba sin espacio en un teléfono de 360dp (y con letra grande).
+          Align(
+            alignment: Alignment.centerLeft,
+            child: EtiquetaEstado(codigo: encargo.codigoEstado),
+          ),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(

@@ -11,6 +11,7 @@ import 'package:gestor_encargos/shared/domain/dia.dart';
 import 'package:gestor_encargos/shared/domain/telefono.dart';
 import 'package:gestor_encargos/shared/presentation/formato_fecha.dart';
 import 'package:gestor_encargos/shared/presentation/tema/colores.dart';
+import 'package:gestor_encargos/shared/sync/outbox.dart';
 
 import '../../../helpers/encargos_prueba.dart';
 import '../../../helpers/entorno_prueba.dart';
@@ -190,5 +191,122 @@ void main() {
 
     await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
     await expectLater(tester, meetsGuideline(textContrastGuideline));
+  });
+
+  group('editar encargo (S2c; decisión del usuario: una sola hoja)', () {
+    Finder campo(String etiqueta) => find.widgetWithText(TextField, etiqueta);
+
+    Future<void> abrirHoja(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Editar encargo'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> guardar(WidgetTester tester, [String texto = 'Guardar']) async {
+      await tester.ensureVisible(find.widgetWithText(FilledButton, texto));
+      await tester.tap(find.widgetWithText(FilledButton, texto));
+      await tester.pumpAndSettle();
+    }
+
+    Future<Map<String, Object?>?> ultimoCuerpo() async {
+      final ops = await entorno.base.select(entorno.base.operacionesOutbox).get();
+      return ops.where((o) => o.metodo == 'PATCH').lastOrNull?.cuerpoJson;
+    }
+
+    probar('abre con los datos y guarda solo lo cambiado; la cabecera se actualiza', (
+      tester,
+    ) async {
+      await abrirDetalle(tester);
+      await abrirHoja(tester);
+
+      expect(find.text('Editar encargo'), findsOneWidget);
+      expect(tester.widget<TextField>(campo('Ubicación (opcional)')).controller!.text, 'Cajón 3');
+      await tester.enterText(campo('¿Qué hay que hacer?'), 'Vestido de noche azul');
+      await tester.enterText(campo('Ubicación (opcional)'), 'Bolsa 12');
+      await guardar(tester);
+
+      expect(find.text('Cambios guardados'), findsOneWidget);
+      expect(find.text('Vestido de noche azul'), findsOneWidget);
+      expect(find.text('Bolsa 12'), findsOneWidget);
+      expect(await ultimoCuerpo(), {
+        'descripcion': 'Vestido de noche azul',
+        'ubicacion_fisica': 'Bolsa 12',
+      });
+    });
+
+    probar('reprogramar: recuerda la primera promesa y la cabecera la muestra', (tester) async {
+      await abrirDetalle(tester, entregaEnDias: 2);
+      await abrirHoja(tester);
+
+      await tester.tap(find.text('En 1 semana'));
+      await tester.pumpAndSettle();
+      expect(find.text('La primera promesa (${dia(2)}) queda guardada.'), findsOneWidget);
+      await guardar(tester);
+
+      expect(find.text('Prometido: ${dia(2)}'), findsOneWidget);
+      expect(find.text(dia(7)), findsOneWidget);
+      expect(await ultimoCuerpo(), {'fecha_entrega_acordada': iso(7)});
+    });
+
+    probar('vaciar la ubicación la borra', (tester) async {
+      await abrirDetalle(tester);
+      await abrirHoja(tester);
+
+      await tester.enterText(campo('Ubicación (opcional)'), '');
+      await guardar(tester);
+
+      expect(find.text('Sin ubicación'), findsOneWidget);
+      expect(await ultimoCuerpo(), {'ubicacion_fisica': null});
+    });
+
+    probar('sin cambios: cierra sin encolar ni avisar', (tester) async {
+      await abrirDetalle(tester);
+      await abrirHoja(tester);
+
+      await guardar(tester);
+
+      expect(find.text('Editar encargo'), findsNothing);
+      expect(find.text('Cambios guardados'), findsNothing);
+      expect(await ultimoCuerpo(), isNull);
+    });
+
+    probar('descripción vacía: lo marca y no guarda', (tester) async {
+      await abrirDetalle(tester);
+      await abrirHoja(tester);
+
+      await tester.enterText(campo('¿Qué hay que hacer?'), ' ');
+      await guardar(tester);
+
+      expect(find.text('Escribe qué hay que hacer.'), findsOneWidget);
+      expect(await ultimoCuerpo(), isNull);
+    });
+
+    probar('entregado: la fecha se ve pero no se cambia (decisión del usuario)', (tester) async {
+      await abrirDetalle(tester, estado: 'ENTREGADO');
+      await abrirHoja(tester);
+
+      expect(find.text('Ya fue entregado: la fecha no se cambia.'), findsOneWidget);
+      expect(find.text('En 1 semana'), findsNothing);
+      await tester.enterText(campo('Notas generales (opcional)'), 'Recogió la hija');
+      await guardar(tester);
+
+      expect(await ultimoCuerpo(), {'notas_generales': 'Recogió la hija'});
+    });
+
+    probar('cancelado: tampoco se reprograma', (tester) async {
+      await abrirDetalle(tester, estado: 'CANCELADO');
+      await abrirHoja(tester);
+
+      expect(find.text('Está cancelado: la fecha no se cambia.'), findsOneWidget);
+    });
+
+    probar('la hoja también cumple 56dp y contraste (Doc 6)', (tester) async {
+      await abrirDetalle(tester);
+      await abrirHoja(tester);
+      await tester.tap(find.text('Hoy'));
+      await tester.pumpAndSettle();
+
+      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(textContrastGuideline));
+    });
   });
 }

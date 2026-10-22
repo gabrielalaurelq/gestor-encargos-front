@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../shared/domain/dia.dart';
 import '../../../shared/domain/monto.dart';
 import '../../../shared/domain/telefono.dart';
+import '../../../shared/domain/valor_invalido.dart';
 import '../../../shared/infrastructure/db/base_datos.dart';
 import '../../../shared/sync/numeracion.dart';
 import '../../../shared/sync/outbox.dart';
@@ -15,6 +16,11 @@ import '../domain/estado_encargo.dart';
 /// Los encargos en la base local. Mismo patrón que clientes y catálogo: cada
 /// escritura va a Drift y encola su envío en la misma transacción, sin
 /// adelantar `actualizado_en` (ver `sinVersionDelServidor`).
+abstract final class TiposEncargo {
+  static const crear = TiposOperacion.crearEncargo;
+  static const editar = 'editar_encargo';
+}
+
 class RepositorioEncargos {
   RepositorioEncargos({
     required this._base,
@@ -80,7 +86,7 @@ class RepositorioEncargos {
           );
       await _outbox.encolar(
         OperacionNueva(
-          tipo: TiposOperacion.crearEncargo,
+          tipo: TiposEncargo.crear,
           metodo: 'POST',
           ruta: '/encargos',
           cuerpo: {
@@ -96,6 +102,63 @@ class RepositorioEncargos {
         ),
       );
       return EncargoNuevo(id: id, numero: numero);
+    });
+  }
+
+  /// Datos generales (S2c): `PATCH` solo con lo que cambió; sin cambios no
+  /// encola nada y devuelve `false`. Ubicación y notas vacías se borran
+  /// (`null` explícito, como hace el backend). Reprogramar mueve solo la
+  /// acordada: la prometida queda como testigo (Doc 2, invariantes 6-7).
+  ///
+  /// Un encargo entregado o cancelado no se reprograma (decisión del
+  /// usuario); el backend lo permitiría, la app no.
+  Future<bool> editar(
+    Encargo actual, {
+    required String descripcion,
+    required DateTime fechaEntregaAcordada,
+    required String ubicacion,
+    required String notas,
+  }) async {
+    final limpia = ReglasEncargo.validarDescripcion(descripcion);
+    final reprograma = fechaEntregaAcordada != actual.fechaEntregaAcordada;
+    if (reprograma && (actual.estado?.cerrado ?? false)) {
+      throw const ValorInvalido(
+        'ENCARGO_CERRADO',
+        'Un encargo entregado o cancelado no se reprograma.',
+      );
+    }
+    String? opcional(String texto) => texto.trim().isEmpty ? null : texto.trim();
+    final nuevaUbicacion = opcional(ubicacion);
+    final nuevasNotas = opcional(notas);
+    final cuerpo = <String, Object?>{
+      if (limpia != actual.descripcion) 'descripcion': limpia,
+      if (reprograma) 'fecha_entrega_acordada': isoDesdeDia(fechaEntregaAcordada),
+      if (nuevaUbicacion != actual.ubicacionFisica) 'ubicacion_fisica': nuevaUbicacion,
+      if (nuevasNotas != actual.notasGenerales) 'notas_generales': nuevasNotas,
+    };
+    if (cuerpo.isEmpty) return false;
+    return _base.transaction(() async {
+      final filas = await (_base.update(_base.encargos)..where((e) => e.id.equals(actual.id)))
+          .write(
+            EncargosCompanion(
+              descripcion: Value(limpia),
+              fechaEntregaAcordada: Value(isoDesdeDia(fechaEntregaAcordada)),
+              ubicacionFisica: Value(nuevaUbicacion),
+              notasGenerales: Value(nuevasNotas),
+            ),
+          );
+      if (filas == 0) throw StateError('No existe el encargo ${actual.id}');
+      await _outbox.encolar(
+        OperacionNueva(
+          tipo: TiposEncargo.editar,
+          metodo: 'PATCH',
+          ruta: '/encargos/${actual.id}',
+          cuerpo: cuerpo,
+          entidadId: actual.id,
+          encargoId: actual.id,
+        ),
+      );
+      return true;
     });
   }
 

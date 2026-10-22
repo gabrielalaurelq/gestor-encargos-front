@@ -145,7 +145,7 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 |---|---|---|
 | **S2a** | Crear Encargo: cliente, descripción y fecha de entrega (Caso 7) | ✅ |
 | **S2b** | Detalle de Encargo: cabecera (las secciones llegan en Sprints 3-4) | ✅ |
-| **S2c** | Editar datos generales: descripción, reprogramar, ubicación, notas (el descuento va con Trabajos, Sprint 3) | — |
+| **S2c** | Editar datos generales: descripción, reprogramar, ubicación, notas (el descuento va con Trabajos, Sprint 3) | ✅ |
 
 ## S2a — Crear Encargo (`lib/features/encargos/`)
 
@@ -162,3 +162,11 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 - **Atrasado** (decisión del usuario): fecha acordada anterior a hoy y sin `fecha_listo` (Doc 2, regla 6) → la fecha en rojo con "Atrasado". **Un cancelado no se marca.** La regla vive en `Encargo.atrasadoEl(hoy)` para el Dashboard (Sprint 5).
 - Una sola consulta reactiva (`RepositorioEncargos.observar`, encargo + cliente con `LEFT JOIN`). Sin botones aún: "Cambiar estado" y las secciones llegan en Sprints 3-4, WhatsApp en el 5, Editar en el S2c.
 - **Deuda menor:** `Encargo` (detalle) y `EncargoDeCliente` (fila de la ficha) son dos modelos de lectura; unificarlos en el Sprint 3, cuando `Encargo` sume trabajos y pagos.
+
+## S2c — Editar encargo (`hoja_editar_encargo.dart`)
+
+- **Una sola hoja** (decisión del usuario), desde el lápiz del Detalle: descripción, fecha de entrega (el mismo `SelectorFechaEntrega`), ubicación y notas generales. El cliente no se cambia (el contrato no lo acepta); el descuento llega con Trabajos (Sprint 3).
+- **Reprogramar** mueve solo la acordada; la hoja avisa "La primera promesa (…) queda guardada" y la cabecera muestra "Prometido: …". Fecha pasada: el mismo aviso con "Guardar igual".
+- **Entregado o cancelado no se reprograma** (decisión del usuario; el backend lo permitiría): la fecha se ve con el motivo, el resto sí se edita. El repositorio también lo impide (`ENCARGO_CERRADO`).
+- `PATCH` solo con lo que cambió; ubicación o notas vacías viajan como `null` (se borran); sin cambios no encola nada. "Cambios guardados" al guardar.
+- La etiqueta de estado pasó de la barra superior al inicio del cuerpo: con el lápiz al lado, el número del encargo quedaba sin espacio en 360dp (lo detectó el test de contraste).

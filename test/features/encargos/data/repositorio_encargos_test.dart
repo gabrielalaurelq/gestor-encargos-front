@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/encargos/data/repositorio_encargos.dart';
+import 'package:gestor_encargos/features/encargos/domain/encargo.dart';
 import 'package:gestor_encargos/shared/domain/monto.dart';
 import 'package:gestor_encargos/shared/domain/valor_invalido.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
@@ -168,5 +169,111 @@ void main() {
       expect(vistos, [null, 15]);
       await sub.cancel();
     });
+  });
+
+  group('editar (S2c)', () {
+    Future<Encargo> conEncargo({String estado = 'EN_PROCESO'}) async {
+      await insertarEncargo(
+        base,
+        id: 'e1',
+        clienteId: 'ana',
+        creadoEn: '2026-10-01T15:00:00.000Z',
+        estado: estado,
+        descripcion: 'Vestido',
+        entregaAcordada: '2026-10-24',
+        ubicacion: 'Cajón 3',
+      );
+      return (await repositorio.observar('e1').first)!;
+    }
+
+    Future<void> editar(
+      Encargo actual, {
+      String? descripcion,
+      DateTime? fecha,
+      String? ubicacion,
+      String? notas,
+    }) => repositorio.editar(
+      actual,
+      descripcion: descripcion ?? actual.descripcion,
+      fechaEntregaAcordada: fecha ?? actual.fechaEntregaAcordada,
+      ubicacion: ubicacion ?? actual.ubicacionFisica ?? '',
+      notas: notas ?? actual.notasGenerales ?? '',
+    );
+
+    test('PATCH solo con lo que cambió; la fila local cambia en la misma transacción', () async {
+      final actual = await conEncargo();
+
+      await editar(actual, descripcion: ' Vestido de noche ', notas: 'Llamar antes');
+
+      final op = (await cola()).single;
+      expect(
+        [op.tipo, op.metodo, op.ruta, op.encargoId],
+        [TiposEncargo.editar, 'PATCH', '/encargos/e1', 'e1'],
+      );
+      expect(op.cuerpoJson, {'descripcion': 'Vestido de noche', 'notas_generales': 'Llamar antes'});
+      final fila = await base.select(base.encargos).getSingle();
+      expect(
+        [fila.descripcion, fila.notasGenerales, fila.ubicacionFisica],
+        ['Vestido de noche', 'Llamar antes', 'Cajón 3'],
+      );
+      expect(fila.actualizadoEn, '2026-10-01T15:00:00.000Z', reason: 'no adelanta la versión');
+    });
+
+    test('reprogramar mueve solo la acordada: la prometida queda', () async {
+      final actual = await conEncargo();
+
+      await editar(actual, fecha: DateTime.utc(2026, 10, 30));
+
+      expect((await cola()).single.cuerpoJson, {'fecha_entrega_acordada': '2026-10-30'});
+      final fila = await base.select(base.encargos).getSingle();
+      expect([fila.fechaEntregaPrometida, fila.fechaEntregaAcordada], ['2026-10-24', '2026-10-30']);
+    });
+
+    test('ubicación vacía se borra con null explícito', () async {
+      final actual = await conEncargo();
+
+      await editar(actual, ubicacion: '  ');
+
+      expect((await cola()).single.cuerpoJson, {'ubicacion_fisica': null});
+      expect((await base.select(base.encargos).getSingle()).ubicacionFisica, isNull);
+    });
+
+    test('sin cambios no encola nada', () async {
+      final actual = await conEncargo();
+
+      expect(
+        await repositorio.editar(
+          actual,
+          descripcion: ' Vestido ',
+          fechaEntregaAcordada: actual.fechaEntregaAcordada,
+          ubicacion: 'Cajón 3',
+          notas: '',
+        ),
+        isFalse,
+      );
+      expect(await cola(), isEmpty);
+    });
+
+    test('descripción vacía no escribe nada', () async {
+      final actual = await conEncargo();
+
+      await expectLater(editar(actual, descripcion: ' '), throwsA(isA<ValorInvalido>()));
+      expect(await cola(), isEmpty);
+    });
+
+    for (final estado in ['ENTREGADO', 'CANCELADO']) {
+      test('$estado no se reprograma (decisión del usuario), pero lo demás sí', () async {
+        final actual = await conEncargo(estado: estado);
+
+        await expectLater(
+          editar(actual, fecha: DateTime.utc(2026, 10, 30)),
+          throwsA(isA<ValorInvalido>().having((e) => e.codigo, 'codigo', 'ENCARGO_CERRADO')),
+        );
+        expect(await cola(), isEmpty);
+
+        await editar(actual, notas: 'Recogió la hija');
+        expect((await cola()).single.cuerpoJson, {'notas_generales': 'Recogió la hija'});
+      });
+    }
   });
 }
