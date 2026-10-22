@@ -1,0 +1,101 @@
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:gestor_encargos/features/encargos/data/repositorio_encargos.dart';
+import 'package:gestor_encargos/shared/domain/valor_invalido.dart';
+import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
+import 'package:gestor_encargos/shared/sync/numeracion.dart';
+import 'package:gestor_encargos/shared/sync/outbox.dart';
+
+import '../../../helpers/adaptador_falso.dart';
+
+void main() {
+  late BaseDatos base;
+  late Outbox outbox;
+  late Numeracion numeracion;
+  late RepositorioEncargos repositorio;
+
+  setUp(() {
+    base = BaseDatos(NativeDatabase.memory());
+    outbox = Outbox(base);
+    numeracion = Numeracion(base: base, api: clienteApiDePrueba(AdaptadorFalso()));
+    repositorio = RepositorioEncargos(
+      base: base,
+      outbox: outbox,
+      numeracion: numeracion,
+      nuevoId: () => 'e1',
+      reloj: () => DateTime.utc(2026, 10, 22, 15),
+    );
+  });
+  tearDown(() async {
+    await outbox.cerrar();
+    await base.close();
+  });
+
+  Future<List<OperacionOutbox>> cola() => base.select(base.operacionesOutbox).get();
+  Future<void> conBloque(int desde, int hasta) =>
+      base.guardarMetadato(Numeracion.claveRangos, '[[$desde,$hasta]]');
+
+  Future<void> crear({String descripcion = ' Basta de pantalón ', DateTime? fecha}) =>
+      repositorio.crear(
+        clienteId: 'ana',
+        descripcion: descripcion,
+        fechaEntregaAcordada: fecha ?? DateTime.utc(2026, 10, 24),
+      );
+
+  test('nace como en el backend: INGRESADO, en cero y prometida = acordada', () async {
+    await conBloque(15, 100);
+    await crear();
+
+    final fila = await base.select(base.encargos).getSingle();
+    expect(
+      [fila.clienteId, fila.numero, fila.descripcion, fila.estado],
+      ['ana', 15, 'Basta de pantalón', 'INGRESADO'],
+    );
+    expect([fila.precioTotal, fila.descuento, fila.saldoPendiente], [0, 0, 0]);
+    expect([fila.fechaEntregaAcordada, fila.fechaEntregaPrometida], ['2026-10-24', '2026-10-24']);
+    expect(fila.creadoEn, '2026-10-22T15:00:00.000Z');
+    expect(fila.actualizadoEn, sinVersionDelServidor);
+  });
+
+  test('el POST lleva el número del bloque y no envía la fecha prometida', () async {
+    await conBloque(15, 100);
+    await crear();
+
+    final op = (await cola()).single;
+    expect(
+      [op.tipo, op.metodo, op.ruta, op.entidadId, op.encargoId],
+      [TiposOperacion.crearEncargo, 'POST', '/encargos', 'e1', 'e1'],
+    );
+    expect(op.cuerpoJson, {
+      'id': 'e1',
+      'cliente_id': 'ana',
+      'numero': 15,
+      'descripcion': 'Basta de pantalón',
+      'fecha_entrega_acordada': '2026-10-24',
+    });
+    expect(await numeracion.restantes(), 85, reason: 'el 15 ya se gastó');
+  });
+
+  test('sin bloque (agotado sin conexión) se crea igual, sin número: se numera al subir', () async {
+    await crear();
+
+    expect((await base.select(base.encargos).getSingle()).numero, isNull);
+    expect((await cola()).single.cuerpoJson!.containsKey('numero'), isFalse);
+  });
+
+  test('una fecha pasada se acepta (decisión del usuario)', () async {
+    await crear(fecha: DateTime.utc(2026, 9, 1));
+
+    expect((await base.select(base.encargos).getSingle()).fechaEntregaAcordada, '2026-09-01');
+  });
+
+  test('descripción vacía no escribe nada ni gasta número', () async {
+    await conBloque(15, 100);
+
+    await expectLater(crear(descripcion: '  '), throwsA(isA<ValorInvalido>()));
+
+    expect(await base.select(base.encargos).get(), isEmpty);
+    expect(await cola(), isEmpty);
+    expect(await numeracion.restantes(), 86);
+  });
+}

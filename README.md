@@ -138,3 +138,20 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 - **Editar** abre la `HojaCliente` del S1b. **"Nuevo encargo"** (decisión del usuario) abre Crear Encargo con `?cliente=<id>`: Crear Encargo (Sprint 2) debe leerlo y dejar al cliente ya elegido.
 - `EstadoEncargo` (`features/encargos/domain/`) queda creado para Dashboard, Calendario y Detalle. `EncargoDeCliente` es un modelo de solo lectura para esta lista: **deuda menor**, revisar si se unifica con el agregado Encargo del Sprint 2.
 - `testWidgetsConBase` ahora desmonta también si el test falla: antes, un fallo dejaba colgados los tests siguientes del archivo.
+
+## Sprint 2 — plan aprobado (2026-10-22)
+
+| Bloque | Contenido | Estado |
+|---|---|---|
+| **S2a** | Crear Encargo: cliente, descripción y fecha de entrega (Caso 7) | ✅ |
+| **S2b** | Detalle de Encargo: cabecera (las secciones llegan en Sprints 3-4) | — |
+| **S2c** | Editar datos generales: descripción, reprogramar, ubicación, notas (el descuento va con Trabajos, Sprint 3) | — |
+
+## S2a — Crear Encargo (`lib/features/encargos/`)
+
+- **Solo 3 campos** (Doc 6, PRD módulo 2): cliente, "¿Qué hay que hacer?" y fecha de entrega. Desde la ficha llega con `?cliente=<id>` y el cliente ya elegido; desde el (+) del Inicio, sin elegir.
+- **Elegir cliente** abre `HojaElegirCliente`: la misma búsqueda de la pestaña Clientes (`BuscadorClientes`, extraído y compartido) y, si no está, "Crear cliente «texto»" con la `HojaCliente` del S1b, sin salir del flujo. El cliente nuevo sube antes que su encargo (la cola respeta el orden).
+- **Fecha** con atajos de un toque (Hoy, Mañana, En 3 días, En 1 semana) y "Otra fecha…"; sin fecha marcada de entrada. `SelectorFechaEntrega` se reutiliza al reprogramar (S2c). Una **fecha pasada se acepta con aviso** "Esa fecha ya pasó. ¿Es correcta?" y "Guardar igual" (decisión del usuario: pasar encargos del cuaderno). "Hoy" es el día de Lima según el reloj del teléfono.
+- **Al guardar**, en una transacción: número del bloque Hi/Lo (sin red; si se agotó, sin número y se numera al subir), fila INGRESADO en cero con prometida = acordada, y el `POST /encargos` en la cola. Luego **reemplaza** la pantalla por el Detalle (decisión del usuario; "atrás" no vuelve al formulario) con "Encargo #N creado".
+- **Salir con algo escrito pide confirmación** ("¿Descartar este encargo?"); vacío sale directo. El botón Guardar va fijo abajo, siempre visible.
+- `Aviso` (advertencia ámbar que no bloquea) queda compartido con el teléfono repetido.

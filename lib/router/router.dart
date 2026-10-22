@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../features/clientes/presentation/pantalla_clientes.dart';
 import '../features/clientes/presentation/pantalla_ficha_cliente.dart';
+import '../features/encargos/presentation/pantalla_nuevo_encargo.dart';
 import '../features/servicios/presentation/pantalla_catalogo.dart';
 import '../features/sesion/application/sesion.dart';
 import '../features/sesion/domain/estado_sesion.dart';
@@ -132,11 +133,8 @@ GoRouter router(Ref ref) {
       // `nuevo` va antes que `:id` para que no se tome como un id.
       GoRoute(
         path: Rutas.nuevoEncargo,
-        builder: (_, _) => const PantallaPendiente(
-          titulo: 'Nuevo encargo',
-          icono: Icons.add_box_outlined,
-          sprint: 'Sprint 1-2',
-        ),
+        builder: (_, estado) =>
+            PantallaNuevoEncargo(clienteInicialId: estado.uri.queryParameters['cliente']),
       ),
       GoRoute(
         path: '/encargos/:id',

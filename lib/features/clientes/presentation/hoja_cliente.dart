@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/domain/telefono.dart';
 import '../../../shared/domain/valor_invalido.dart';
-import '../../../shared/presentation/tema/colores.dart';
 import '../../../shared/presentation/tema/tema.dart';
+import '../../../shared/presentation/widgets/aviso.dart';
 import '../application/clientes.dart';
 import '../domain/cliente.dart';
 
@@ -60,6 +60,22 @@ class HojaCliente extends ConsumerStatefulWidget {
       telefonoInicial: telefonoInicial,
     ),
   );
+
+  /// Un texto buscado que es un teléfono ("987 654", "+34 612…") prellena el
+  /// celular al crear; cualquier otro, el nombre (PRD: "con el texto buscado
+  /// prellenado").
+  static bool pareceTelefono(String texto) =>
+      RegExp(r'\d').hasMatch(texto) && RegExp(r'^\+?[\d\s\-]+$').hasMatch(texto.trim());
+
+  /// Alta desde una búsqueda: lo buscado va al nombre o al celular.
+  static Future<ResultadoHojaCliente?> abrirConBusqueda(BuildContext context, String texto) {
+    final telefono = pareceTelefono(texto);
+    return abrir(
+      context,
+      nombreInicial: telefono ? '' : texto.trim(),
+      telefonoInicial: telefono ? texto.trim() : '',
+    );
+  }
 
   @override
   ConsumerState<HojaCliente> createState() => _EstadoHojaCliente();
@@ -215,9 +231,12 @@ class _EstadoHojaCliente extends ConsumerState<HojaCliente> {
               ),
             ),
             if (repetido != null) ...[
-              _AvisoRepetido(
-                cliente: repetido,
-                alElegir: () => Navigator.pop(context, ClienteExistenteElegido(repetido)),
+              Aviso(
+                texto: 'Ya tienes a ${repetido.nombre} con este número.',
+                accion: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, ClienteExistenteElegido(repetido)),
+                  child: Text('Ver a ${repetido.nombre}'),
+                ),
               ),
               const SizedBox(height: Medidas.espacio),
             ],
@@ -225,34 +244,6 @@ class _EstadoHojaCliente extends ConsumerState<HojaCliente> {
               onPressed: _guardando ? null : _guardar,
               child: Text(repetido == null ? 'Guardar' : 'Guardar igual'),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AvisoRepetido extends StatelessWidget {
-  const _AvisoRepetido({required this.cliente, required this.alElegir});
-
-  final Cliente cliente;
-  final VoidCallback alElegir;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colores.ambarFondo,
-        borderRadius: BorderRadius.circular(Medidas.radio),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Ya tienes a ${cliente.nombre} con este número.'),
-            const SizedBox(height: 8),
-            OutlinedButton(onPressed: alElegir, child: Text('Ver a ${cliente.nombre}')),
           ],
         ),
       ),
