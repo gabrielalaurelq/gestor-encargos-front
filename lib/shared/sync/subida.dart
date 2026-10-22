@@ -13,6 +13,8 @@ Future<OperacionOutbox> _sinCambios(OperacionOutbox operacion) async => operacio
 /// Por cada operación, según cómo responde el servidor:
 /// - **Bien** (incluido el `200` de un alta repetida, Doc 5 v1.3) → sale de
 ///   la cola.
+/// - **`DELETE` con `404`** → sale de la cola como hecho: lo que se quería
+///   (que no exista) ya es cierto, por ejemplo si otro teléfono lo borró.
 /// - **Error permanente** (`400`/`404`/`409`/`422`) → se **aparta** y la cola
 ///   sigue (decisión del usuario): una operación rechazada no frena las
 ///   demás.
@@ -44,6 +46,13 @@ class Subida {
       try {
         await _enviar(operacion);
       } on ErrorApi catch (error) {
+        final yaBorrado =
+            operacion.metodo == 'DELETE' && error is ErrorRechazado && error.status == 404;
+        if (yaBorrado) {
+          await _outbox.completar(operacion.id);
+          subidas++;
+          continue;
+        }
         if (error.esPermanente) {
           await _outbox.apartar(operacion.id, error);
           continue;

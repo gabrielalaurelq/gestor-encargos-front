@@ -176,6 +176,12 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 | Bloque | Contenido | Estado |
 |---|---|---|
 | **S3a** | Cambios no guardados: resolver operaciones apartadas con "Descartar" (Doc 7 v1.2) | ✅ |
+| **S3b1** | Trabajos (catálogo / personalizado) con recálculo local de total y saldo | ✅ |
+| **S3b2** | Descuento en "Editar encargo", validado contra la suma de trabajos | ⏳ |
+| **S3c** | Pagos | ⏳ |
+| **S3d** | Objetos recibidos (y vínculo trabajo → objeto) | ⏳ |
+
+Estado del encargo ("Cambiar estado") va en el Sprint 4.
 
 ## S3a — Cambios no guardados (`lib/shared/sync/descarte.dart`, `lib/features/sincronizacion/`)
 
@@ -184,3 +190,13 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 - Cómo se recupera cada recurso: `GET /clientes/{id}`; servicios recorre `GET /servicios?incluir_inactivos=true` (no hay GET por id); `GET /encargos/{id}` trae el agregado entero: encargo e hijos quedan como en el servidor (se le inyecta el `encargo_id` que el detalle omite), y los hijos locales que el servidor ya no tiene se borran. **Las filas con otras operaciones aún en cola no se pisan** (lo local pendiente gana).
 - **Cada módulo nuevo registra sus tipos en `tiposDeOperacion`** (texto humano + recurso + si es alta); un test verifica que coincidan con los que encolan las features.
 - `flujo_sesion_test` pasó a `testWidgetsConBase`: el menú "Más" ahora lee la base.
+
+## S3b1 — Trabajos (`lib/features/encargos/`, `lib/shared/sync/recalculo.dart`)
+
+- Sección **"Trabajos"** en el Detalle (apilada, Doc 6), con el chip "Catálogo". **"Agregar trabajo"** abre una hoja con dos vías: **Del catálogo** (por defecto si hay servicios activos; buscador y un toque agrega) o **Personalizado** (descripción + precio; S/ 0 vale). Tocar una fila abre "Editar trabajo": en uno del catálogo el **precio queda fijo** y la descripción sí se edita (decisión del usuario); "Eliminar trabajo" con confirmación.
+- **Entregado o cancelado: los trabajos se ven pero no se cambian** (decisión del usuario; el backend lo permitiría). El repositorio lo comprueba contra la fila (`ENCARGO_CERRADO`), no solo la UI.
+- **Recálculo local** en la misma transacción que la escritura y el Outbox: `TotalesEncargo.calcular` replica `Encargo.recalcular()` del backend (descuento ajustado a la suma, total = suma − descuento, saldo = total − pagos, en céntimos). Al catálogo viaja solo `{id, servicio_id}`; el servidor copia igual.
+- Eliminar borra también los materiales del trabajo (la cascada del backend). Tipos `crear_trabajo` / `editar_trabajo` / `eliminar_trabajo` registrados en `tiposDeOperacion`; el **Descarte recalcula** los totales del encargo después de restaurar el agregado (cuenta los hijos propios aún sin subir).
+- **Subida: un `DELETE` con `404` sale de la cola como hecho** (ya no existe, por ejemplo lo borró otro teléfono), en vez de quedar en "Cambios no guardados".
+- `CampoPrecio` y `textoEditable` pasan a `shared/presentation/widgets/` (los usa también la hoja del catálogo).
+- **Deuda menor:** si llega por `/sync` un trabajo de otro teléfono mientras este encargo tiene una operación propia en cola, el total local no lo cuenta hasta la siguiente sincronización tras subir.

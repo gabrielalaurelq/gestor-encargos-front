@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/clientes/data/repositorio_clientes.dart';
 import 'package:gestor_encargos/features/encargos/data/repositorio_encargos.dart';
+import 'package:gestor_encargos/features/encargos/data/repositorio_trabajos.dart';
 import 'package:gestor_encargos/features/servicios/data/repositorio_servicios.dart';
 import 'package:gestor_encargos/shared/domain/monto.dart';
 import 'package:gestor_encargos/shared/domain/telefono.dart';
@@ -58,6 +59,9 @@ void main() {
         TiposServicio.editar,
         TiposEncargo.crear,
         TiposEncargo.editar,
+        TiposTrabajo.crear,
+        TiposTrabajo.editar,
+        TiposTrabajo.eliminar,
       ]),
     );
   });
@@ -279,6 +283,36 @@ void main() {
       expect((await base.select(base.encargos).getSingle()).descripcion, 'Vestido de noche');
       expect((await base.select(base.pagos).getSingle()).id, 'mio');
       expect([for (final op in await cola()) op.entidadId], ['mio']);
+    });
+
+    test('trabajo rechazado: sale, y el total se recalcula con lo que sigue sin subir', () async {
+      await insertarEncargo(base, id: 'e1', clienteId: 'ana', creadoEn: marca);
+      var siguiente = 0;
+      final trabajos = RepositorioTrabajos(
+        base: base,
+        outbox: outbox,
+        nuevoId: () => 't${++siguiente}',
+      );
+      await trabajos.agregarPersonalizado('e1', descripcion: 'Rechazado', precio: Monto.desde(50));
+      await trabajos.agregarPersonalizado('e1', descripcion: 'Pendiente', precio: Monto.desde(20));
+      final apartada = await rechazar();
+      // El servidor no tiene ninguno de los dos: su total es 0.
+      backend.cuando(
+        'GET /encargos/e1',
+        (_) => Respuesta(200, {
+          ...detalle().cuerpo! as Map<String, Object?>,
+          'precio_total': 0,
+          'saldo_pendiente': 0,
+        }),
+      );
+
+      await descarte.descartar(apartada);
+
+      final filas = await base.select(base.trabajos).get();
+      expect([for (final t in filas) t.descripcion], ['Pendiente']);
+      final encargo = await base.select(base.encargos).getSingle();
+      expect([encargo.precioTotal, encargo.saldoPendiente], [2000, 2000]);
+      expect([for (final op in await cola()) op.entidadId], ['t2']);
     });
   });
 }

@@ -76,6 +76,19 @@ void main() {
     expect(backend.contar('POST /encargos/e1/notas'), 1);
   });
 
+  test('un DELETE con 404 sale como hecho: lo que se quería ya es cierto', () async {
+    backend.cuando('DELETE /encargos/e1/trabajos/t1', (_) => Respuesta.error(404, 'NO_ENCONTRADO'));
+    backend.cuando('PATCH /encargos/e1/trabajos/t2', (_) => Respuesta.error(404, 'NO_ENCONTRADO'));
+    await outbox.encolar(operacion('DELETE', '/encargos/e1/trabajos/t1', 't1'));
+    await outbox.encolar(
+      operacion('PATCH', '/encargos/e1/trabajos/t2', 't2', cuerpo: {'precio': 1}),
+    );
+
+    expect(await subida.subir(), 1);
+
+    expect([for (final op in await outbox.apartadas().first) op.entidadId], ['t2']);
+  });
+
   test('un error transitorio detiene la subida en esa operación, sin saltarla', () async {
     backend.cuando('POST /encargos/e1/pagos', (_) => Respuesta.error(503, 'NO_DISPONIBLE'));
     await outbox.encolar(operacion('POST', '/encargos/e1/pagos', 'p1', cuerpo: {'id': 'p1'}));

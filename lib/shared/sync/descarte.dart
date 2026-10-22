@@ -5,6 +5,7 @@ import '../infrastructure/http/cliente_api.dart';
 import '../infrastructure/http/error_api.dart';
 import 'colecciones.dart';
 import 'outbox.dart';
+import 'recalculo.dart';
 
 /// De qué recurso del servidor se recupera la versión actual al descartar.
 enum Recurso { cliente, servicio, encargo }
@@ -23,7 +24,7 @@ class TipoDeOperacion {
 }
 
 /// Los mismos códigos que encolan las features (`TiposCliente`,
-/// `TiposServicio`, `TiposEncargo`); `descarte_test.dart` comprueba que
+/// `TiposServicio`, `TiposEncargo`, `TiposTrabajo`); `descarte_test.dart` comprueba que
 /// coincidan.
 const tiposDeOperacion = <String, TipoDeOperacion>{
   'crear_cliente': TipoDeOperacion('Agregar cliente', Recurso.cliente, alta: true),
@@ -32,6 +33,9 @@ const tiposDeOperacion = <String, TipoDeOperacion>{
   'editar_servicio': TipoDeOperacion('Cambiar servicio', Recurso.servicio),
   'crear_encargo': TipoDeOperacion('Crear encargo', Recurso.encargo, alta: true),
   'editar_encargo': TipoDeOperacion('Editar encargo', Recurso.encargo),
+  'crear_trabajo': TipoDeOperacion('Agregar trabajo', Recurso.encargo, alta: true),
+  'editar_trabajo': TipoDeOperacion('Editar trabajo', Recurso.encargo),
+  'eliminar_trabajo': TipoDeOperacion('Eliminar trabajo', Recurso.encargo),
 };
 
 /// "Descartar" una operación apartada (Doc 7 v1.2, decisión del usuario):
@@ -123,6 +127,8 @@ class Descarte {
 
   /// `GET /encargos/{id}` trae el agregado entero: el encargo y sus hijos se
   /// dejan como en el servidor, salvo filas con otras operaciones en cola.
+  /// Al final se recalculan el total y el saldo en local: si quedó algún hijo
+  /// propio sin subir, los del servidor todavía no lo cuentan.
   Future<_Aplicar> _encargo(String id) async {
     final json = await _pedir('/encargos/$id');
     return (Set<String> protegidas) async {
@@ -163,6 +169,7 @@ class Descarte {
           }
         }
       }
+      await recalcularTotales(_base, id);
     };
   }
 

@@ -13,7 +13,7 @@ import 'selector_fecha_entrega.dart';
 
 /// "Editar encargo" (S2c; decisión del usuario: una sola hoja): descripción,
 /// reprogramar, ubicación física y notas generales. El cliente no se cambia
-/// (el contrato no lo acepta) y el descuento llega con Trabajos (Sprint 3).
+/// (el contrato no lo acepta) y el descuento llega en el S3b2.
 class HojaEditarEncargo extends ConsumerStatefulWidget {
   const HojaEditarEncargo({super.key, required this.encargo});
 
