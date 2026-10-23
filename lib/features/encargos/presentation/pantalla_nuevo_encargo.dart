@@ -10,6 +10,7 @@ import '../../../shared/domain/valor_invalido.dart';
 import '../../../shared/presentation/tema/colores.dart';
 import '../../../shared/presentation/tema/tema.dart';
 import '../../../shared/presentation/widgets/aviso.dart';
+import '../../../shared/presentation/widgets/boton_dictado.dart';
 import '../../clientes/application/clientes.dart';
 import '../../clientes/domain/cliente.dart';
 import '../../clientes/presentation/hoja_elegir_cliente.dart';
@@ -162,6 +163,7 @@ class _EstadoPantallaNuevoEncargo extends ConsumerState<PantallaNuevoEncargo> {
                       labelText: '¿Qué hay que hacer?',
                       hintText: 'Ej. basta de pantalón azul',
                       errorText: _errorDescripcion,
+                      suffixIcon: BotonDictado(controller: _descripcion),
                     ),
                   ),
                   const SizedBox(height: Medidas.espacio),

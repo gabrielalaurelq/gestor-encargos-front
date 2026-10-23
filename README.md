@@ -263,7 +263,7 @@ Decisiones del usuario: una hoja "Cambiar estado" con el siguiente natural prime
 | **S5a** | Dashboard: cabecera, tres números, Atrasados y Entregas de hoy | ✅ |
 | **S5b** | Listas detrás de los números ("Encargos activos", "Saldo pendiente") | ✅ |
 | **S5c** | WhatsApp (nivel gratuito) | ✅ |
-| **S5d** | Dictado por voz | ⏳ |
+| **S5d** | Dictado por voz | ✅ |
 
 Decisiones del usuario (PRD v1.3): **activos** = Ingresado, En proceso, Listo y Pausado; el **saldo pendiente** suma lo que deben los no cancelados, **entregados fiados incluidos** (solo saldos positivos); cada número lleva a algo; los listos que no se recogen no tienen sección (los cubre Recordatorios, Sprint 7). "Entregas de hoy" no incluye lo ya entregado hoy.
 
@@ -292,3 +292,12 @@ Decisiones del usuario (PRD v1.3): **activos** = Ingresado, En proceso, Listo y 
 - **Sin teléfono** (P2): "Ana García no tiene teléfono" → "Agregar teléfono" abre la hoja del cliente; al guardar, sigue a WhatsApp.
 - Si el sistema no puede abrir el enlace: "No se pudo abrir WhatsApp.". Sin WhatsApp instalado, Android abre la página de `wa.me` en el navegador.
 - `AbridorEnlaces` (interfaz + `url_launcher`, nueva dependencia) se reemplaza en los tests por `EnlacesFalsos`, que anota los enlaces. El manifiesto de Android declara la consulta `https` (Android 11+).
+
+**Sprint 5 completo: los 9 módulos P0 están construidos (Hito 2, Doc 11), sin validar todavía en un teléfono real.**
+
+## S5d — Dictado por voz (`shared/infrastructure/dictado.dart`, `shared/presentation/widgets/boton_dictado.dart`)
+
+- Micrófono (`BotonDictado`, como `suffixIcon`) en la descripción del encargo (crear y editar), las notas generales, la descripción del objeto y la del trabajo personalizado (agregar y editar). **No** en el nombre del cliente (decisión P1).
+- Lo dictado **se agrega al final** de lo escrito (P2), aparece mientras se habla y en un campo vacío empieza con mayúscula. Nunca guarda ni envía nada. Mientras escucha: "Escuchando…" en rojo y el botón de detener (con letra muy grande, solo el ícono; el lector de pantalla anuncia "Escuchando").
+- **Permiso al primer toque** (P3). Sin permiso o sin reconocedor: un diálogo lo explica ("Puedes seguir escribiendo"; diálogo y no SnackBar porque las hojas modales lo taparían) y el micrófono se oculta en todos los campos hasta reabrir la app (`dictadoOcultoProvider`).
+- `Dictado` (interfaz) + `DictadoNativo` (`speech_to_text`, nueva dependencia; español de Perú si existe). Sin conexión funciona solo si el paquete de español está descargado (Doc 7 v1.4). Tests con `DictadoFalso` (`EntornoPrueba.dictado`: `oir` / `callar`). Manifiesto: `RECORD_AUDIO` y consulta a `RecognitionService`.

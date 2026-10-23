@@ -5,6 +5,7 @@ import 'auth/aviso_sesion.dart';
 import 'conectividad.dart';
 import 'config/ambiente.dart';
 import 'db/base_datos.dart';
+import 'dictado.dart';
 import 'enlaces.dart';
 import 'http/cliente_api.dart';
 
@@ -50,3 +51,8 @@ ClienteApi clienteApi(Ref ref) {
 /// Deep links fuera de la app (WhatsApp, S5c).
 @Riverpod(keepAlive: true)
 AbridorEnlaces abridorEnlaces(Ref ref) => const AbridorEnlacesSistema();
+
+/// Dictado por voz nativo (S5d). Uno para toda la app: el reconocedor se
+/// prepara una sola vez.
+@Riverpod(keepAlive: true)
+Dictado dictado(Ref ref) => DictadoNativo();

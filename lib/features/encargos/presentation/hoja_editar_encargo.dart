@@ -8,6 +8,7 @@ import '../../../shared/presentation/formato_fecha.dart';
 import '../../../shared/presentation/tema/tema.dart';
 import '../../../shared/presentation/widgets/aviso.dart';
 import '../../../shared/presentation/widgets/campo_precio.dart';
+import '../../../shared/presentation/widgets/boton_dictado.dart';
 import '../application/encargos.dart';
 import '../domain/encargo.dart';
 import '../domain/encargo_nuevo.dart';
@@ -177,6 +178,7 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
               decoration: InputDecoration(
                 labelText: '¿Qué hay que hacer?',
                 errorText: _errorDescripcion,
+                suffixIcon: BotonDictado(controller: _descripcion),
               ),
             ),
             const SizedBox(height: Medidas.espacio),
@@ -240,7 +242,10 @@ class _EstadoHojaEditarEncargo extends ConsumerState<HojaEditarEncargo> {
               minLines: 2,
               maxLines: 5,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Notas generales (opcional)'),
+              decoration: InputDecoration(
+                labelText: 'Notas generales (opcional)',
+                suffixIcon: BotonDictado(controller: _notas),
+              ),
             ),
             const SizedBox(height: Medidas.espacio),
             FilledButton(

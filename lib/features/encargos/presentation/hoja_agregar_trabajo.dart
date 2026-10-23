@@ -6,6 +6,7 @@ import '../../../shared/domain/texto_busqueda.dart';
 import '../../../shared/domain/valor_invalido.dart';
 import '../../../shared/presentation/tema/tema.dart';
 import '../../../shared/presentation/widgets/campo_precio.dart';
+import '../../../shared/presentation/widgets/boton_dictado.dart';
 import '../../servicios/application/catalogo.dart';
 import '../../servicios/domain/servicio.dart';
 import '../application/encargos.dart';
@@ -239,6 +240,7 @@ class _EstadoHojaAgregarTrabajo extends ConsumerState<HojaAgregarTrabajo> {
               labelText: 'Descripción',
               hintText: 'Ej. Confección de vestido',
               errorText: _errorDescripcion,
+              suffixIcon: BotonDictado(controller: _descripcion),
             ),
           ),
           const SizedBox(height: Medidas.espacio),

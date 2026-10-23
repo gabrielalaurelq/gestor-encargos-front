@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Dictado por voz (S5d): Android lo pide la primera vez que se toca el micrófono. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- La app habla con la API (Doc 5) y con R2 (fotos): sin este permiso en
          el manifiesto principal, el build de release no tendría red. Flutter
          solo lo pone en los de debug/profile. -->
@@ -49,6 +51,10 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
+        </intent>
+        <!-- Dictado por voz (S5d): encontrar el reconocedor del sistema (Android 11+). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

@@ -12,6 +12,7 @@ import 'package:gestor_encargos/features/sesion/domain/estado_sesion.dart';
 import 'package:gestor_encargos/shared/infrastructure/auth/almacen_tokens.dart';
 import 'package:gestor_encargos/shared/infrastructure/config/ambiente.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
+import 'package:gestor_encargos/shared/infrastructure/dictado.dart';
 import 'package:gestor_encargos/shared/infrastructure/enlaces.dart';
 import 'package:gestor_encargos/shared/infrastructure/http/cliente_api.dart';
 import 'package:gestor_encargos/shared/infrastructure/providers.dart';
@@ -35,6 +36,46 @@ class IdentidadFalsa implements ProveedorIdentidad {
 
   @override
   Future<void> cerrar() async => cierres++;
+}
+
+/// Dictado sin micrófono: la prueba decide qué "se oye" con [oir] y cuándo
+/// se calla con [callar].
+class DictadoFalso implements Dictado {
+  PreparacionDictado preparacion = PreparacionDictado.listo;
+  int preparaciones = 0;
+  bool escuchando = false;
+  void Function(String)? _alReconocer;
+  void Function()? _alTerminar;
+
+  @override
+  Future<PreparacionDictado> preparar() async {
+    preparaciones++;
+    return preparacion;
+  }
+
+  @override
+  Future<void> escuchar({
+    required void Function(String texto) alReconocer,
+    required void Function() alTerminar,
+  }) async {
+    escuchando = true;
+    _alReconocer = alReconocer;
+    _alTerminar = alTerminar;
+  }
+
+  /// Lo reconocido hasta ahora en esta escucha (crece, como el real).
+  void oir(String texto) => _alReconocer?.call(texto);
+
+  /// El usuario dejó de hablar.
+  void callar() {
+    escuchando = false;
+    final alTerminar = _alTerminar;
+    _alTerminar = null;
+    alTerminar?.call();
+  }
+
+  @override
+  Future<void> detener() async => callar();
 }
 
 /// Abre "enlaces" sin salir de la prueba: los anota.
@@ -99,6 +140,7 @@ class EntornoPrueba {
   final notificaciones = NotificacionesFalsas();
   final motor = MotorSyncFalso();
   final enlaces = EnlacesFalsos();
+  final dictado = DictadoFalso();
   int pendientes = 0;
 
   List<Override> get overrides => [
@@ -117,6 +159,7 @@ class EntornoPrueba {
     cambiosPendientesProvider.overrideWith((_) => Stream.value(pendientes)),
     motorSyncProvider.overrideWithValue(motor),
     abridorEnlacesProvider.overrideWithValue(enlaces),
+    dictadoProvider.overrideWithValue(dictado),
   ];
 
   /// `POST /auth/login` responde como el backend real para [negocioId].

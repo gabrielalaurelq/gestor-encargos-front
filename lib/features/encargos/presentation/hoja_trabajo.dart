@@ -6,6 +6,7 @@ import '../../../shared/domain/valor_invalido.dart';
 import '../../../shared/presentation/tema/colores.dart';
 import '../../../shared/presentation/tema/tema.dart';
 import '../../../shared/presentation/widgets/campo_precio.dart';
+import '../../../shared/presentation/widgets/boton_dictado.dart';
 import '../application/encargos.dart';
 import '../domain/objeto_recibido.dart';
 import '../domain/trabajo.dart';
@@ -136,7 +137,11 @@ class _EstadoHojaTrabajo extends ConsumerState<HojaTrabajo> {
               controller: _descripcion,
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.next,
-              decoration: InputDecoration(labelText: 'Descripción', errorText: _errorDescripcion),
+              decoration: InputDecoration(
+                labelText: 'Descripción',
+                errorText: _errorDescripcion,
+                suffixIcon: BotonDictado(controller: _descripcion),
+              ),
             ),
             const SizedBox(height: Medidas.espacio),
             if (trabajo.delCatalogo) ...[

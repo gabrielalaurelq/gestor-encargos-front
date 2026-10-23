@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/domain/valor_invalido.dart';
 import '../../../shared/presentation/tema/colores.dart';
 import '../../../shared/presentation/tema/tema.dart';
+import '../../../shared/presentation/widgets/boton_dictado.dart';
 import '../application/encargos.dart';
 import '../domain/objeto_recibido.dart';
 
@@ -132,6 +133,7 @@ class _EstadoHojaObjeto extends ConsumerState<HojaObjeto> {
                 labelText: 'Descripción',
                 hintText: 'Pantalón azul, tela del cliente…',
                 errorText: _error,
+                suffixIcon: BotonDictado(controller: _descripcion),
               ),
             ),
             const SizedBox(height: Medidas.espacio),
