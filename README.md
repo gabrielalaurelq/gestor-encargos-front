@@ -239,7 +239,7 @@ Estado del encargo ("Cambiar estado") va en el Sprint 4.
 | Bloque | Contenido | Estado |
 |---|---|---|
 | **S4a** | Reglas de estado (copia de la tabla del backend) y `cambiarEstado` en Drift + Outbox | ✅ |
-| **S4b** | Botón y hoja "Cambiar estado" en el Detalle, aviso de saldo y confirmaciones | ⏳ |
+| **S4b** | Botón y hoja "Cambiar estado" en el Detalle, aviso de saldo y confirmaciones | ✅ |
 
 Decisiones del usuario: una hoja "Cambiar estado" con el siguiente natural primero (Doc 6); al entregar con saldo se pregunta antes ("¿Entregar igual?"); solo ENTREGADO y CANCELADO piden confirmación; la nota al pausar/cancelar espera al módulo Notas (Sprint 8); **de LISTO no se vuelve a EN PROCESO** (regla del backend, se mantiene).
 
@@ -248,3 +248,10 @@ Decisiones del usuario: una hoja "Cambiar estado" con el siguiente natural prime
 - `EstadoEncargo.destinos` / `puedePasarA`: copia de la tabla de `estado-encargo.ts`, con un test que la compara caso por caso (36 pares). Saltos hacia adelante sí; retroceder no; PAUSADO/CANCELADO desde cualquier activo y de vuelta a cualquier activo; ENTREGADO terminal.
 - `cambiarEstado(encargoId, destino)`: lee el estado **de Drift dentro de la transacción**, aplica los efectos del backend (`fecha_listo` solo si no la tenía; al entregar, `fecha_entrega_real` y, si se saltó LISTO, las dos con el mismo día; pausar/cancelar no borra fechas) y encola `PATCH /encargos/{id}/estado` con `{estado, fecha}` del teléfono. Mismo estado → `false` sin encolar; transición no permitida → `TRANSICION_INVALIDA`.
 - Tipo `cambiar_estado` en `tiposDeOperacion` (un rechazo se resuelve con "Descartar").
+
+## S4b — "Cambiar estado" (`hoja_cambiar_estado.dart`, `pantalla_detalle_encargo.dart`)
+
+- Botón **"Cambiar estado" fijo abajo** del Detalle, como en el wireframe (WhatsApp irá a su lado en el Sprint 5). No aparece en un encargo entregado: no tiene a dónde ir.
+- La hoja dice el estado actual ("Ahora: En proceso") y ofrece **solo los destinos válidos**, con una línea de ayuda. Desde Ingresado, En proceso o Listo, el siguiente natural va primero y marcado "Siguiente"; desde Pausado o Cancelado, en orden de avance (opción a: el estado anterior no se guarda).
+- **Confirman solo Entregado y Cancelado.** Entregar con saldo: "¿Entregar igual? Queda S/ X por cobrar…" con "Volver" / "Entregar igual"; sin saldo, "¿Marcar como entregado?". Cancelar avisa que datos y pagos se conservan y que se puede reactivar.
+- El resto se aplica al tocar, con SnackBar "Ahora: Listo". Las secciones (Objetos, Trabajos, Pagos, Descuento) se cierran o se abren solas, porque leen el estado reactivo.

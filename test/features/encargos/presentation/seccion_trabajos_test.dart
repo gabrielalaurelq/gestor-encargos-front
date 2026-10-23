@@ -135,8 +135,11 @@ void main() {
   Finder campo(String etiqueta) => find.widgetWithText(TextField, etiqueta);
 
   /// Precio total y saldo (cero pagado: valen lo mismo).
-  void totalYSaldo(String texto) =>
-      expect(find.text(texto), findsAtLeastNWidgets(2), reason: 'precio total y saldo');
+  void totalYSaldo(String texto) => expect(
+    find.text(texto, skipOffstage: false),
+    findsAtLeastNWidgets(2),
+    reason: 'precio total y saldo (la cabecera puede quedar arriba, fuera de la vista)',
+  );
 
   probar('sin trabajos lo dice y ofrece agregar', (tester) async {
     await abrirDetalle(tester);

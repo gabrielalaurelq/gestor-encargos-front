@@ -14,16 +14,17 @@ import '../../../shared/sync/providers.dart';
 import '../application/encargos.dart';
 import '../domain/encargo.dart';
 import 'etiqueta_estado.dart';
+import 'hoja_cambiar_estado.dart';
 import 'hoja_editar_encargo.dart';
 import 'seccion_objetos.dart';
 import 'seccion_pagos.dart';
 import 'seccion_trabajos.dart';
 
 /// Detalle de Encargo (Doc 6, pantalla 6): la cabecera (cliente,
-/// descripción, entrega, ubicación, total y saldo, como en el wireframe) y las
+/// descripción, entrega, ubicación, total y saldo, como en el wireframe), las
 /// secciones Objetos (S3d1), Trabajos (S3b1) y Pagos (S3c), en el orden del
-/// Doc 6. Las demás secciones (Notas, Fotos) y las acciones ("Cambiar estado", WhatsApp) se suman en los
-/// Sprints 3-5.
+/// Doc 6, y abajo, fijo, "Cambiar estado" (S4b). Notas y Fotos llegan en los
+/// Sprints 7-8, y WhatsApp, al lado de "Cambiar estado", en el Sprint 5.
 class PantallaDetalleEncargo extends ConsumerWidget {
   const PantallaDetalleEncargo({super.key, required this.encargoId});
 
@@ -74,12 +75,22 @@ class _Detalle extends StatelessWidget {
       ..showSnackBar(const SnackBar(content: Text('Cambios guardados')));
   }
 
+  Future<void> _cambiarEstado(BuildContext context) async {
+    final nuevo = await HojaCambiarEstado.abrir(context, encargo);
+    if (nuevo == null || !context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('Ahora: ${nuevo.etiqueta}')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
     final hoy = hoyDelNegocio();
     final numero = encargo.numero;
     final notas = encargo.notasGenerales;
+    // Entregado no tiene a dónde ir; un estado desconocido, tampoco.
+    final cambiaEstado = encargo.estado?.destinos.isNotEmpty ?? false;
     return Scaffold(
       appBar: AppBar(
         title: Text(numero == null ? 'Encargo · sin número aún' : 'Encargo #$numero'),
@@ -154,6 +165,24 @@ class _Detalle extends StatelessWidget {
           ],
         ],
       ),
+      // Fijo abajo como en el wireframe: a mano del pulgar sin desplazarse.
+      bottomNavigationBar: cambiaEstado
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Medidas.espacio,
+                  8,
+                  Medidas.espacio,
+                  Medidas.espacio,
+                ),
+                child: FilledButton.icon(
+                  onPressed: () => _cambiarEstado(context),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Cambiar estado'),
+                ),
+              ),
+            )
+          : null,
     );
   }
 }
