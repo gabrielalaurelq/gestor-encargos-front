@@ -1,6 +1,7 @@
 import '../../../shared/domain/monto.dart';
 import '../../clientes/domain/cliente.dart';
 import 'estado_encargo.dart';
+import 'fila_encargo.dart';
 
 /// Los datos generales de un encargo para su detalle (PRD módulo 2; Doc 6,
 /// pantalla 6). Solo lectura: las secciones (objetos, trabajos, pagos…) se
@@ -51,8 +52,11 @@ class Encargo {
   /// Se reprogramó: la primera promesa queda fija (PRD módulo 2).
   bool get reprogramado => fechaEntregaPrometida != fechaEntregaAcordada;
 
-  /// Doc 2, regla 6: la fecha acordada ya pasó y no está listo. Un cancelado
-  /// no cuenta (decisión del usuario): ya no se va a entregar.
-  bool atrasadoEl(DateTime hoy) =>
-      estado != EstadoEncargo.cancelado && fechaListo == null && fechaEntregaAcordada.isBefore(hoy);
+  /// Ver [estaAtrasado].
+  bool atrasadoEl(DateTime hoy) => estaAtrasado(
+    estado: estado,
+    fechaListo: fechaListo,
+    fechaEntregaAcordada: fechaEntregaAcordada,
+    hoy: hoy,
+  );
 }

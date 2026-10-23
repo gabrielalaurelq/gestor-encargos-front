@@ -61,6 +61,8 @@ class Servicios extends Table with _Sincronizada {
 
 @DataClassName('EncargoFila')
 @TableIndex(name: 'encargos_cliente', columns: {#clienteId})
+// Dashboard (S5a): atrasados y entregas de hoy filtran por la fecha acordada.
+@TableIndex(name: 'encargos_entrega', columns: {#fechaEntregaAcordada})
 class Encargos extends Table with _Sincronizada {
   TextColumn get clienteId => text()();
 

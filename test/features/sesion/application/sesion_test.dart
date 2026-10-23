@@ -173,6 +173,18 @@ void main() {
       expect(await entorno.base.leerMetadato('sesion.negocio_id'), 'negocio-nuevo');
     });
 
+    test('guarda el nombre del negocio para el Dashboard; sin nombre, lo olvida', () async {
+      entorno.loginAceptado(nombreNegocio: '  Costurería Ana ');
+      await sesionCargada(contenedor);
+
+      await sesion().iniciarSesion();
+      expect(await entorno.base.leerMetadato(claveNombreNegocio), 'Costurería Ana');
+
+      entorno.loginAceptado();
+      await sesion().iniciarSesion();
+      expect(await entorno.base.leerMetadato(claveNombreNegocio), isNull);
+    });
+
     test('vuelve la misma cuenta → conserva los datos (y su Outbox)', () async {
       await entorno.base.guardarMetadato('sesion.negocio_id', 'negocio-1');
       await entorno.base.guardarMetadato('sync.since', '2026-10-01T00:00:00.000Z');

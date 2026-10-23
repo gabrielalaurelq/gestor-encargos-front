@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../features/dashboard/presentation/pantalla_dashboard.dart';
 import '../features/clientes/presentation/pantalla_clientes.dart';
 import '../features/clientes/presentation/pantalla_ficha_cliente.dart';
 import '../features/encargos/presentation/pantalla_detalle_encargo.dart';
@@ -57,22 +58,7 @@ GoRouter router(Ref ref) {
         builder: (_, _, navegacion) => ShellPrincipal(navegacion: navegacion),
         branches: [
           StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: Rutas.dashboard,
-                builder: (context, _) => PantallaPendiente(
-                  titulo: 'Inicio',
-                  icono: Icons.home_outlined,
-                  sprint: 'Sprint 5',
-                  accionFlotante: FloatingActionButton(
-                    heroTag: null, // ver PantallaClientes
-                    tooltip: 'Nuevo encargo',
-                    onPressed: () => context.push(Rutas.nuevoEncargo),
-                    child: const Icon(Icons.add, size: 32),
-                  ),
-                ),
-              ),
-            ],
+            routes: [GoRoute(path: Rutas.dashboard, builder: (_, _) => const PantallaDashboard())],
           ),
           StatefulShellBranch(
             routes: [

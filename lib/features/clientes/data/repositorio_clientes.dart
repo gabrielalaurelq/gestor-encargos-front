@@ -165,6 +165,7 @@ class RepositorioClientes {
     descripcion: fila.descripcion,
     codigoEstado: fila.estado,
     fechaEntregaAcordada: diaDesdeIso(fila.fechaEntregaAcordada),
+    fechaListo: fila.fechaListo == null ? null : diaDesdeIso(fila.fechaListo!),
     fechaEntregaReal: fila.fechaEntregaReal == null ? null : diaDesdeIso(fila.fechaEntregaReal!),
     saldoPendiente: Monto.desdeCentimos(fila.saldoPendiente),
     pagado: Monto.desdeCentimos(pagado),

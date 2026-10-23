@@ -255,3 +255,22 @@ Decisiones del usuario: una hoja "Cambiar estado" con el siguiente natural prime
 - La hoja dice el estado actual ("Ahora: En proceso") y ofrece **solo los destinos válidos**, con una línea de ayuda. Desde Ingresado, En proceso o Listo, el siguiente natural va primero y marcado "Siguiente"; desde Pausado o Cancelado, en orden de avance (opción a: el estado anterior no se guarda).
 - **Confirman solo Entregado y Cancelado.** Entregar con saldo: "¿Entregar igual? Queda S/ X por cobrar…" con "Volver" / "Entregar igual"; sin saldo, "¿Marcar como entregado?". Cancelar avisa que datos y pagos se conservan y que se puede reactivar.
 - El resto se aplica al tocar, con SnackBar "Ahora: Listo". Las secciones (Objetos, Trabajos, Pagos, Descuento) se cierran o se abren solas, porque leen el estado reactivo.
+
+## Sprint 5
+
+| Bloque | Contenido | Estado |
+|---|---|---|
+| **S5a** | Dashboard: cabecera, tres números, Atrasados y Entregas de hoy | ✅ |
+| **S5b** | Listas detrás de los números ("Encargos activos", "Saldo pendiente") | ⏳ |
+| **S5c** | WhatsApp (nivel gratuito) | ⏳ |
+| **S5d** | Dictado por voz | ⏳ |
+
+Decisiones del usuario (PRD v1.3): **activos** = Ingresado, En proceso, Listo y Pausado; el **saldo pendiente** suma lo que deben los no cancelados, **entregados fiados incluidos** (solo saldos positivos); cada número lleva a algo; los listos que no se recogen no tienen sección (los cubre Recordatorios, Sprint 7). "Entregas de hoy" no incluye lo ya entregado hoy.
+
+## S5a — Dashboard (`lib/features/dashboard/`)
+
+- Reemplaza el "Pendiente · Sprint 5" de la pestaña Inicio. Cabecera con el **nombre del negocio** (se guarda del login, `negocio.nombre` en metadatos; sin él, "Inicio") y "Hoy, jueves 23 de octubre".
+- **Tres números**: encargos activos, entregas de hoy y saldo pendiente (el saldo se achica antes que cortarse). Se vuelven tocables en el S5b.
+- **Atrasados** en rojo, con borde, del más antiguo al más reciente y sin límite: "Basta de pantalón · debía estar listo ayer". Después, **Entregas de hoy** con su etiqueta de estado. Un toque abre el Detalle. Sin nada pendiente: "Aún no tienes encargos pendientes. Toca + para crear uno."
+- Todo sale de Drift, sin red: `RepositorioDashboard` filtra y suma en SQL (índice local nuevo `encargos_entrega`). "Hoy" se recalcula al volver a la app.
+- **Deuda pagada:** `FilaEncargo` (`encargos/domain/fila_encargo.dart`) es el renglón común de las listas; `EncargoDeCliente` de la ficha ahora la extiende, y la regla de atrasado (`estaAtrasado`) es una sola para el Detalle, la ficha y el Dashboard.

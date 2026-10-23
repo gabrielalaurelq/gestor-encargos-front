@@ -25,6 +25,10 @@ SesionRemota sesionRemota(Ref ref) => SesionRemota(ref.watch(clienteApiProvider)
 /// datos no son suyos y se borran antes de mostrar nada.
 const _claveNegocio = 'sesion.negocio_id';
 
+/// El nombre del negocio, para la cabecera del Dashboard (S5a). Se guarda en
+/// cada login; una sesión abierta antes del S5a no lo tiene hasta el próximo.
+const claveNombreNegocio = 'negocio.nombre';
+
 /// La sesión del dispositivo: login, logout y fin de sesión forzado.
 ///
 /// Dos formas de terminar, con efectos distintos a propósito:
@@ -75,6 +79,12 @@ class Sesion extends _$Sesion {
       final anterior = await base.leerMetadato(_claveNegocio);
       if (anterior != null && anterior != nueva.negocioId) await base.borrarTodo();
       await base.guardarMetadato(_claveNegocio, nueva.negocioId);
+      final nombre = nueva.nombreNegocio?.trim() ?? '';
+      if (nombre.isEmpty) {
+        await base.borrarMetadato(claveNombreNegocio);
+      } else {
+        await base.guardarMetadato(claveNombreNegocio, nombre);
+      }
       await ref.read(almacenTokensProvider).guardar(nueva.tokens);
     } on SinConexion {
       return FalloLogin.sinConexion;

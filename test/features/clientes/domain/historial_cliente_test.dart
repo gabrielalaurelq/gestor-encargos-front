@@ -9,6 +9,7 @@ EncargoDeCliente encargo(String creadoEn, {String estado = 'ENTREGADO', int paga
       descripcion: 'x',
       codigoEstado: estado,
       fechaEntregaAcordada: DateTime.utc(2026, 10, 1),
+      fechaListo: null,
       fechaEntregaReal: null,
       saldoPendiente: Monto.cero,
       pagado: Monto.desdeCentimos(pagado),

@@ -3,12 +3,15 @@ import '../../../shared/infrastructure/http/cliente_api.dart';
 
 /// Lo que devuelve `POST /auth/login` (Doc 5, Bloque 1).
 class SesionNueva {
-  const SesionNueva({required this.tokens, required this.negocioId});
+  const SesionNueva({required this.tokens, required this.negocioId, this.nombreNegocio});
 
   final Tokens tokens;
 
   /// El negocio se crea en el primer login (Doc 5): siempre viene.
   final String negocioId;
+
+  /// Para la cabecera del Dashboard (S5a); puede no estar puesto todavía.
+  final String? nombreNegocio;
 }
 
 /// Endpoints de sesión y dispositivo del Doc 5.
@@ -26,6 +29,7 @@ class SesionRemota {
         refresh: json['refresh_token'] as String,
       ),
       negocioId: negocio['id'] as String,
+      nombreNegocio: negocio['nombre_negocio'] as String?,
     );
   }
 

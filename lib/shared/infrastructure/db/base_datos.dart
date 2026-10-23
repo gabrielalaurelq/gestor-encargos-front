@@ -74,6 +74,11 @@ class BaseDatos extends _$BaseDatos {
     return fila?.valor;
   }
 
+  /// Como [leerMetadato], pero avisa cada vez que cambia.
+  Stream<String?> observarMetadato(String clave) => (select(
+    metadatos,
+  )..where((m) => m.clave.equals(clave))).watchSingleOrNull().map((fila) => fila?.valor);
+
   Future<void> guardarMetadato(String clave, String valor) =>
       into(metadatos).insertOnConflictUpdate(MetadatosCompanion.insert(clave: clave, valor: valor));
 

@@ -1,40 +1,25 @@
 import '../../../shared/domain/dia.dart';
 import '../../../shared/domain/monto.dart';
-import '../../encargos/domain/estado_encargo.dart';
+import '../../encargos/domain/fila_encargo.dart';
 
-/// Un encargo tal como se lista en la ficha del cliente (PRD módulo 1): solo
-/// lo que se muestra, más lo pagado para el resumen. No es el agregado
-/// Encargo (eso llega en el Sprint 2).
-class EncargoDeCliente {
+/// Un encargo tal como se lista en la ficha del cliente (PRD módulo 1): la
+/// [FilaEncargo] común más lo pagado, para el resumen.
+class EncargoDeCliente extends FilaEncargo {
   const EncargoDeCliente({
-    required this.id,
-    required this.numero,
-    required this.descripcion,
-    required this.codigoEstado,
-    required this.fechaEntregaAcordada,
-    required this.fechaEntregaReal,
-    required this.saldoPendiente,
+    required super.id,
+    required super.numero,
+    required super.descripcion,
+    required super.codigoEstado,
+    required super.fechaEntregaAcordada,
+    required super.fechaListo,
+    required super.fechaEntregaReal,
+    required super.saldoPendiente,
     required this.pagado,
-    required this.creadoEn,
+    required super.creadoEn,
   });
-
-  final String id;
-
-  /// `null` mientras no tiene número asignado (Doc 3, ADR-008).
-  final int? numero;
-  final String descripcion;
-  final String codigoEstado;
-  final DateTime fechaEntregaAcordada;
-  final DateTime? fechaEntregaReal;
-  final Monto saldoPendiente;
 
   /// Suma de sus pagos, cualquiera sea el estado del encargo.
   final Monto pagado;
-
-  /// Instante ISO del alta: ordena la lista y da la "Última visita".
-  final String creadoEn;
-
-  EstadoEncargo? get estado => EstadoEncargo.desde(codigoEstado);
 }
 
 /// Resumen del historial (PRD módulo 18), con las mismas reglas que

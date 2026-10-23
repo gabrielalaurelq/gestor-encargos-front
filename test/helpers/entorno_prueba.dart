@@ -103,13 +103,13 @@ class EntornoPrueba {
   ];
 
   /// `POST /auth/login` responde como el backend real para [negocioId].
-  void loginAceptado({String negocioId = 'negocio-1'}) {
+  void loginAceptado({String negocioId = 'negocio-1', String? nombreNegocio}) {
     backend.cuando(
       'POST /auth/login',
       (_) => Respuesta(200, {
         'access_token': 'access-1',
         'refresh_token': 'refresh-1',
-        'negocio': {'id': negocioId, 'nombre_negocio': null},
+        'negocio': {'id': negocioId, 'nombre_negocio': nombreNegocio},
       }),
     );
   }

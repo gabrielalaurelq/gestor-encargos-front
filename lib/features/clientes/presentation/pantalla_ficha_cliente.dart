@@ -198,8 +198,7 @@ class _FilaEncargo extends StatelessWidget {
       else if (estado != null && !estado.cerrado)
         'Entrega: ${formatearDia(encargo.fechaEntregaAcordada, conDiaSemana: true, conAnio: false)}',
     ].join(' · ');
-    // Un cancelado no se cobra: su saldo no es una deuda.
-    final debe = estado != EstadoEncargo.cancelado && encargo.saldoPendiente.centimos > 0;
+    final debe = encargo.debe;
     return ListTile(
       title: Text(encargo.descripcion, maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: Text(debe ? '$detalle\nDebe ${encargo.saldoPendiente.formatear()}' : detalle),
