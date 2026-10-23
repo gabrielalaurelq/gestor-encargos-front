@@ -26,7 +26,8 @@ class _PantallaLoginState extends ConsumerState<PantallaLogin> {
           'después la app funciona sin ella.',
     FalloLogin.rechazado => 'No se pudo comprobar tu cuenta de Google. Inténtalo otra vez.',
     FalloLogin.demasiadosIntentos => 'Demasiados intentos seguidos. Espera un minuto.',
-    FalloLogin.noDisponible => 'El ingreso con Google todavía no está configurado en esta versión.',
+    FalloLogin.noDisponible =>
+      'El ingreso con Google no está disponible en esta versión de la app.',
     FalloLogin.servidor => 'Hubo un problema de nuestro lado. Inténtalo en unos minutos.',
   };
 

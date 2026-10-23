@@ -46,3 +46,8 @@ app.*.map.json
 
 # Código generado (build_runner): se regenera en local y en el CI.
 *.g.dart
+
+# Firebase y firmas: los inyecta el CI desde sus secretos, nunca se versionan.
+/android/app/google-services.json
+*.keystore
+*.jks

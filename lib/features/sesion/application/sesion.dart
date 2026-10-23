@@ -5,6 +5,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../shared/infrastructure/http/error_api.dart';
 import '../../../shared/infrastructure/providers.dart';
 import '../../../shared/sync/providers.dart';
+import '../data/identidad_google.dart';
+import '../data/notificaciones_firebase.dart';
 import '../data/proveedor_identidad.dart';
 import '../data/sesion_remota.dart';
 import '../data/token_notificaciones.dart';
@@ -12,11 +14,20 @@ import '../domain/estado_sesion.dart';
 
 part 'sesion.g.dart';
 
+/// Si Firebase arrancó en `main` (el build trae `google-services.json`).
+/// `main` lo sobreescribe; sin él, la app funciona sin login ni avisos.
 @Riverpod(keepAlive: true)
-ProveedorIdentidad proveedorIdentidad(Ref ref) => const ProveedorIdentidadNoConfigurado();
+bool firebaseListo(Ref ref) => false;
 
 @Riverpod(keepAlive: true)
-TokenNotificaciones tokenNotificaciones(Ref ref) => const SinNotificaciones();
+ProveedorIdentidad proveedorIdentidad(Ref ref) => ref.watch(firebaseListoProvider)
+    ? ProveedorIdentidadGoogle(clienteWeb: ref.watch(ambienteProvider).clienteWebGoogle)
+    : const ProveedorIdentidadNoConfigurado();
+
+@Riverpod(keepAlive: true)
+TokenNotificaciones tokenNotificaciones(Ref ref) => ref.watch(firebaseListoProvider)
+    ? const TokenNotificacionesFirebase()
+    : const SinNotificaciones();
 
 @Riverpod(keepAlive: true)
 SesionRemota sesionRemota(Ref ref) => SesionRemota(ref.watch(clienteApiProvider));
@@ -70,6 +81,8 @@ class Sesion extends _$Sesion {
       idToken = await ref.read(proveedorIdentidadProvider).obtenerIdToken();
     } on IdentidadNoDisponible {
       return FalloLogin.noDisponible;
+    } on IdentidadSinConexion {
+      return FalloLogin.sinConexion;
     }
     if (idToken == null) return null;
 

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/sesion/application/sesion.dart';
+import 'package:gestor_encargos/features/sesion/data/proveedor_identidad.dart';
+import 'package:gestor_encargos/features/sesion/data/token_notificaciones.dart';
 import 'package:gestor_encargos/features/sesion/domain/estado_sesion.dart';
 import 'package:gestor_encargos/shared/infrastructure/providers.dart';
 
@@ -159,6 +161,22 @@ void main() {
       await sesionCargada(contenedor);
 
       expect(await sesion().iniciarSesion(), FalloLogin.noDisponible);
+    });
+
+    test('Google o Firebase sin red → sinConexion, sin llamar al backend', () async {
+      entorno.identidad.conRed = false;
+      await sesionCargada(contenedor);
+
+      expect(await sesion().iniciarSesion(), FalloLogin.sinConexion);
+      expect(await entorno.tokens.leer(), isNull);
+    });
+
+    test('sin overrides, un build sin Firebase usa los proveedores deshabilitados', () {
+      final limpio = ProviderContainer();
+      addTearDown(limpio.dispose);
+
+      expect(limpio.read(proveedorIdentidadProvider), isA<ProveedorIdentidadNoConfigurado>());
+      expect(limpio.read(tokenNotificacionesProvider), isA<SinNotificaciones>());
     });
 
     test('entra otra cuenta → borra los datos locales del negocio anterior', () async {

@@ -9,9 +9,8 @@ abstract class TokenNotificaciones {
   Stream<String> get rotaciones;
 }
 
-/// Build sin Firebase: no hay notificaciones. **Deuda técnica**, la misma que
-/// `ProveedorIdentidadNoConfigurado`: la implementación con
-/// `firebase_messaging` llega con el proyecto Firebase.
+/// Build sin Firebase: no hay notificaciones. La real es
+/// `TokenNotificacionesFirebase`.
 class SinNotificaciones implements TokenNotificaciones {
   const SinNotificaciones();
 

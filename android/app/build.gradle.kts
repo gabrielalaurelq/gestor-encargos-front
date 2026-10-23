@@ -4,6 +4,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// La configuración de Firebase no se versiona: el CI la inyecta antes de
+// compilar. Sin ella el build sale igual, con el login deshabilitado.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "pe.gestorencargos.app"
     compileSdk = flutter.compileSdkVersion

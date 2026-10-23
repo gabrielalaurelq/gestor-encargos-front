@@ -17,12 +17,14 @@ class IdentidadNoDisponible implements Exception {
   const IdentidadNoDisponible();
 }
 
-/// El proveedor de un build sin proyecto Firebase (`google-services.json`).
-///
-/// **Deuda técnica:** la implementación real (`google_sign_in` +
-/// `firebase_auth`) entra cuando exista el proyecto Firebase; antes, agregar
-/// esos paquetes rompería el arranque de la app, porque Firebase falla al
-/// inicializarse sin su configuración.
+/// Google o Firebase no respondieron por falta de red.
+class IdentidadSinConexion implements Exception {
+  const IdentidadSinConexion();
+}
+
+/// El proveedor de un build sin `google-services.json` (local o de prueba):
+/// Firebase no arrancó y no hay con qué ingresar. El real es
+/// `ProveedorIdentidadGoogle`.
 class ProveedorIdentidadNoConfigurado implements ProveedorIdentidad {
   const ProveedorIdentidadNoConfigurado();
 

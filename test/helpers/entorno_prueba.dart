@@ -26,11 +26,13 @@ class IdentidadFalsa implements ProveedorIdentidad {
   /// Lo que "elige" el usuario: `null` = cerró el selector sin elegir.
   String? idToken = 'id-token-google';
   bool disponible = true;
+  bool conRed = true;
   int cierres = 0;
 
   @override
   Future<String?> obtenerIdToken() async {
     if (!disponible) throw const IdentidadNoDisponible();
+    if (!conRed) throw const IdentidadSinConexion();
     return idToken;
   }
 
