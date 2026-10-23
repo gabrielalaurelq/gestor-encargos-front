@@ -177,4 +177,92 @@ void main() {
     await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
     await expectLater(tester, meetsGuideline(textContrastGuideline));
   });
+
+  group('los números llevan a algo (S5b)', () {
+    Future<void> tocar(WidgetTester tester, Finder finder) async {
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    probar('"Encargos activos": todos por entrega, atrasados marcados', (tester) async {
+      await abrirApp(tester);
+      await cargarDia();
+      await tester.pumpAndSettle();
+
+      await tocar(tester, find.text('Encargos activos'));
+
+      expect(find.widgetWithText(AppBar, 'Encargos activos'), findsOneWidget);
+      expect(find.text('4 encargos'), findsOneWidget);
+      final casaca = find.text('Cierre de casaca\ndebía estar listo hace 3 días');
+      final futuro = find.textContaining('Entrega: ');
+      expect(casaca, findsOneWidget);
+      expect(futuro, findsNWidgets(2), reason: 'el de hoy y el de dentro de 4 días');
+      expect(tester.getTopLeft(casaca).dy, lessThan(tester.getTopLeft(futuro.first).dy));
+      expect(find.text('Entregado'), findsNothing, reason: 'un entregado no es activo');
+    });
+
+    probar('"Saldo pendiente": de la deuda mayor a la menor, con el fiado', (tester) async {
+      await abrirApp(tester);
+      await cargarDia();
+      await tester.pumpAndSettle();
+
+      await tocar(tester, find.text('Saldo pendiente'));
+
+      expect(find.text('2 encargos · deben S/ 50.00 en total'), findsOneWidget);
+      final mayor = find.text('S/ 30.00');
+      final fiado = find.text('S/ 20.00');
+      expect(tester.getTopLeft(mayor).dy, lessThan(tester.getTopLeft(fiado).dy));
+      expect(find.text('Basta de pantalón\nEntregado'), findsOneWidget);
+    });
+
+    probar('sin deudas, la lista lo dice', (tester) async {
+      await abrirApp(tester);
+      await cliente('rosa', 'Rosa Delgado');
+      await encargo('EN_PROCESO', entrega: dia(2));
+      await tester.pumpAndSettle();
+
+      await tocar(tester, find.text('Saldo pendiente'));
+
+      expect(find.text('Nadie te debe nada.'), findsOneWidget);
+    });
+
+    probar('una fila de la lista abre el Detalle', (tester) async {
+      await abrirApp(tester);
+      await cliente('rosa', 'Rosa Delgado');
+      await encargo('EN_PROCESO', entrega: dia(2), saldo: 1000, numero: 47);
+      await tester.pumpAndSettle();
+
+      await tocar(tester, find.text('Saldo pendiente'));
+      await tocar(tester, find.text('Rosa Delgado'));
+
+      expect(find.text('Encargo #47'), findsOneWidget);
+    });
+
+    probar('"Entregas hoy" baja a su sección aunque haya muchos atrasados', (tester) async {
+      await abrirApp(tester);
+      await cliente('rosa', 'Rosa Delgado');
+      for (var i = 1; i <= 12; i++) {
+        await encargo('EN_PROCESO', entrega: dia(-i));
+      }
+      await encargo('EN_PROCESO', entrega: dia(0), descripcion: 'Vestido de hoy');
+      await tester.pumpAndSettle();
+      final seccion = find.text('Entregas de hoy');
+      expect(tester.getTopLeft(seccion).dy, greaterThan(780), reason: 'empieza fuera de la vista');
+
+      await tocar(tester, find.text('Entregas hoy'));
+
+      expect(tester.getTopLeft(seccion).dy, lessThan(780));
+    });
+
+    probar('la lista cumple 56dp y contraste (Doc 6)', (tester) async {
+      await abrirApp(tester);
+      await cargarDia();
+      await tester.pumpAndSettle();
+
+      await tocar(tester, find.text('Encargos activos'));
+
+      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(textContrastGuideline));
+    });
+  });
 }

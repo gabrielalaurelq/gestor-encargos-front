@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/dashboard/data/repositorio_dashboard.dart';
+import 'package:gestor_encargos/features/dashboard/domain/dashboard.dart';
 import 'package:gestor_encargos/shared/domain/monto.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
 
@@ -135,5 +136,43 @@ void main() {
 
       expect(vistos, [1, 0]);
     });
+  });
+
+  group('listas de los números (S5b)', () {
+    List<String> ids(List<dynamic> filas) => [for (final f in filas) f.id as String];
+
+    test('activos: los mismos que cuenta el resumen, por fecha de entrega', () async {
+      await encargo('LISTO', id: 'jueves', entrega: '2026-10-29', listo: '2026-10-22');
+      await encargo('PAUSADO', id: 'ayer', entrega: '2026-10-22');
+      await encargo('INGRESADO', id: 'lunes', entrega: '2026-10-26');
+      await encargo('ENTREGADO', entrega: '2026-10-20', listo: '2026-10-20');
+      await encargo('CANCELADO', entrega: '2026-10-20');
+
+      final lista = await dashboard.observarLista(FiltroEncargos.activos).first;
+
+      expect(ids(lista), ['ayer', 'lunes', 'jueves']);
+      expect(lista.length, (await dashboard.observarResumen().first).activos);
+    });
+
+    test('saldo: de la deuda mayor a la menor, con fiados; suma lo mismo que arriba', () async {
+      await encargo('EN_PROCESO', id: 'poco', saldo: 1000);
+      await encargo('ENTREGADO', id: 'fiado', saldo: 4000, listo: '2026-10-20');
+      await encargo('LISTO', id: 'medio', saldo: 2500, listo: '2026-10-20');
+      await encargo('CANCELADO', saldo: 9900);
+      await encargo('EN_PROCESO', saldo: -300);
+      await encargo('EN_PROCESO');
+
+      final lista = await dashboard.observarLista(FiltroEncargos.conSaldo).first;
+
+      expect(ids(lista), ['fiado', 'medio', 'poco']);
+      final suma = lista.fold(Monto.cero, (total, e) => total + e.saldoPendiente);
+      expect(suma, (await dashboard.observarResumen().first).saldoPendiente);
+    });
+  });
+
+  test('el filtro de la ruta: "activos" y "saldo"; otro no existe', () {
+    expect(FiltroEncargos.desde('activos'), FiltroEncargos.activos);
+    expect(FiltroEncargos.desde('saldo'), FiltroEncargos.conSaldo);
+    expect(FiltroEncargos.desde('otro'), isNull);
   });
 }

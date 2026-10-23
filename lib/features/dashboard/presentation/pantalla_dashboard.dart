@@ -11,13 +11,16 @@ import '../../../shared/presentation/tema/tema.dart';
 import '../../../shared/presentation/widgets/mensaje_pantalla.dart';
 import '../../encargos/domain/fila_encargo.dart';
 import '../../encargos/presentation/etiqueta_estado.dart';
+import '../../encargos/presentation/tarjeta_encargo.dart';
 import '../application/dashboard.dart';
 import '../domain/dashboard.dart';
 
 /// Dashboard (PRD módulo 7; Doc 6, wireframe): la foto del día. Arriba el
 /// negocio y la fecha; tres números (activos, entregas de hoy, saldo
-/// pendiente); "Atrasados" en rojo antes que "Entregas de hoy"; y el + para
-/// crear un encargo. Todo sale de Drift, sin red.
+/// pendiente), cada uno lleva a algo (S5b): los dos de los extremos abren su
+/// lista y "Entregas hoy" baja a su sección; "Atrasados" en rojo antes que
+/// "Entregas de hoy"; y el + para crear un encargo. Todo sale de Drift, sin
+/// red.
 ///
 /// "Hoy" se recalcula al volver a la app: si quedó abierta pasada la
 /// medianoche, las listas cambian de día solas.
@@ -45,6 +48,13 @@ class _EstadoPantallaDashboard extends ConsumerState<PantallaDashboard> {
   }
 
   void _abrir(FilaEncargo encargo) => context.push(Rutas.encargo(encargo.id));
+
+  void _verEntregasHoy() {
+    final destino = _entregasHoy.currentContext;
+    if (destino != null) {
+      Scrollable.ensureVisible(destino, duration: const Duration(milliseconds: 300));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,83 +119,116 @@ class _EstadoPantallaDashboard extends ConsumerState<PantallaDashboard> {
         texto: 'Aún no tienes encargos pendientes. Toca + para crear uno.',
       );
     }
-    return ListView(
+    // Columna y no ListView: "Entregas hoy" salta a su sección, y esa sección
+    // tiene que estar construida aunque haya muchos atrasados encima.
+    return SingleChildScrollView(
       // Abajo, espacio para que el + no tape la última tarjeta.
       padding: const EdgeInsets.fromLTRB(Medidas.espacio, Medidas.espacio, Medidas.espacio, 96),
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _Recuadro(valor: '${resumen.activos}', etiqueta: 'Encargos activos'),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _Recuadro(valor: '${dia.entregasHoy.length}', etiqueta: 'Entregas hoy'),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _Recuadro(
-                valor: resumen.saldoPendiente.formatear(),
-                etiqueta: 'Saldo pendiente',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _Recuadro(
+                  valor: '${resumen.activos}',
+                  etiqueta: 'Encargos activos',
+                  alTocar: () => context.push(Rutas.listaEncargos(FiltroEncargos.activos.codigo)),
+                ),
               ),
-            ),
-          ],
-        ),
-        if (dia.atrasados.isNotEmpty) ...[
-          const SizedBox(height: Medidas.espacio * 1.5),
-          const _Titulo(
-            icono: Icons.warning_amber_rounded,
-            texto: 'Atrasados',
-            color: Colores.rojo,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _Recuadro(
+                  valor: '${dia.entregasHoy.length}',
+                  etiqueta: 'Entregas hoy',
+                  alTocar: _verEntregasHoy,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _Recuadro(
+                  valor: resumen.saldoPendiente.formatear(),
+                  etiqueta: 'Saldo pendiente',
+                  alTocar: () => context.push(Rutas.listaEncargos(FiltroEncargos.conSaldo.codigo)),
+                ),
+              ),
+            ],
           ),
-          for (final encargo in dia.atrasados)
-            _Tarjeta(encargo: encargo, atrasadoDesde: hoy, alTocar: () => _abrir(encargo)),
+          if (dia.atrasados.isNotEmpty) ...[
+            const SizedBox(height: Medidas.espacio * 1.5),
+            const _Titulo(
+              icono: Icons.warning_amber_rounded,
+              texto: 'Atrasados',
+              color: Colores.rojo,
+            ),
+            for (final encargo in dia.atrasados)
+              TarjetaEncargo(
+                encargo: encargo,
+                detalle: '${encargo.descripcion} · ${textoAtraso(encargo, hoy)}',
+                atrasado: true,
+                lateral: const Icon(Icons.chevron_right, color: Colores.textoTerciario),
+                alTocar: () => _abrir(encargo),
+              ),
+          ],
+          const SizedBox(height: Medidas.espacio * 1.5),
+          _Titulo(key: _entregasHoy, icono: Icons.event_outlined, texto: 'Entregas de hoy'),
+          if (dia.entregasHoy.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('Nada pendiente para hoy.'),
+            )
+          else
+            for (final encargo in dia.entregasHoy)
+              TarjetaEncargo(
+                encargo: encargo,
+                detalle: encargo.descripcion,
+                lateral: EtiquetaEstado(codigo: encargo.codigoEstado),
+                alTocar: () => _abrir(encargo),
+              ),
         ],
-        const SizedBox(height: Medidas.espacio * 1.5),
-        _Titulo(key: _entregasHoy, icono: Icons.event_outlined, texto: 'Entregas de hoy'),
-        if (dia.entregasHoy.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Nada pendiente para hoy.'),
-          )
-        else
-          for (final encargo in dia.entregasHoy)
-            _Tarjeta(encargo: encargo, alTocar: () => _abrir(encargo)),
-      ],
+      ),
     );
   }
 }
 
 class _Recuadro extends StatelessWidget {
-  const _Recuadro({required this.valor, required this.etiqueta});
+  const _Recuadro({required this.valor, required this.etiqueta, required this.alTocar});
 
   final String valor;
   final String etiqueta;
+  final VoidCallback alTocar;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-        child: Column(
-          children: [
-            // Un saldo de cuatro cifras no cabe a 360dp con letra grande:
-            // se achica antes que cortarse.
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(valor, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              etiqueta,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colores.textoSecundario, height: 1.2),
-            ),
-          ],
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: alTocar,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+          child: Column(
+            children: [
+              // Un saldo de cuatro cifras no cabe a 360dp con letra grande:
+              // se achica antes que cortarse.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  valor,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                etiqueta,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colores.textoSecundario, height: 1.2),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -216,86 +259,6 @@ class _Titulo extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Un encargo del día: quién, qué y, si está atrasado, desde cuándo (con
-/// borde rojo, Doc 6). Si no, su estado. Un toque lleva al Detalle.
-class _Tarjeta extends StatelessWidget {
-  const _Tarjeta({required this.encargo, required this.alTocar, this.atrasadoDesde});
-
-  final FilaEncargo encargo;
-  final VoidCallback alTocar;
-
-  /// Hoy, si la tarjeta es de un atrasado.
-  final DateTime? atrasadoDesde;
-
-  String get _titulo =>
-      encargo.clienteNombre ??
-      (encargo.numero == null ? 'Encargo sin número aún' : 'Encargo #${encargo.numero}');
-
-  String get _detalle {
-    final hoy = atrasadoDesde;
-    if (hoy == null) return encargo.descripcion;
-    final dias = hoy.difference(encargo.fechaEntregaAcordada).inDays;
-    return '${encargo.descripcion} · debía estar listo '
-        '${dias == 1 ? 'ayer' : 'hace $dias días'}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final atrasado = atrasadoDesde != null;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Medidas.radio),
-        side: const BorderSide(color: Colores.borde),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: alTocar,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: Medidas.toqueMinimo),
-          decoration: atrasado
-              ? const BoxDecoration(
-                  border: Border(left: BorderSide(color: Colores.rojo, width: 6)),
-                )
-              : null,
-          padding: const EdgeInsets.symmetric(horizontal: Medidas.espacio, vertical: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _titulo,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _detalle,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colores.textoSecundario),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (atrasado)
-                const Icon(Icons.chevron_right, color: Colores.textoTerciario)
-              else
-                EtiquetaEstado(codigo: encargo.codigoEstado),
-            ],
-          ),
-        ),
       ),
     );
   }

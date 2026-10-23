@@ -15,6 +15,29 @@ class ResumenDashboard {
   final Monto saldoPendiente;
 }
 
+/// Las listas que abren los números del Dashboard (S5b, decisión P3 del
+/// usuario: todo número lleva a algo).
+enum FiltroEncargos {
+  /// Los activos (P2), por fecha de entrega: los atrasados quedan arriba.
+  activos('activos', 'Encargos activos'),
+
+  /// Los que deben (P1), de la deuda mayor a la menor.
+  conSaldo('saldo', 'Saldo pendiente');
+
+  const FiltroEncargos(this.codigo, this.titulo);
+
+  /// Como va en la ruta.
+  final String codigo;
+  final String titulo;
+
+  static FiltroEncargos? desde(String codigo) {
+    for (final filtro in values) {
+      if (filtro.codigo == codigo) return filtro;
+    }
+    return null;
+  }
+}
+
 /// Las dos listas del día. Un encargo está en una sola: su entrega es hoy
 /// o ya pasó.
 class PendientesDelDia {

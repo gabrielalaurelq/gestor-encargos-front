@@ -76,6 +76,41 @@ class RepositorioDashboard {
     });
   }
 
+  /// La lista detrás de un número (S5b), con las mismas reglas que el
+  /// resumen: lo que se cuenta arriba es lo que se lista.
+  Stream<List<FilaEncargo>> observarLista(FiltroEncargos filtro) {
+    final e = _base.encargos;
+    final consulta = _base.select(e).join([
+      leftOuterJoin(_base.clientes, _base.clientes.id.equalsExp(e.clienteId)),
+    ]);
+    switch (filtro) {
+      case FiltroEncargos.activos:
+        consulta
+          ..where(e.estado.isIn(_activos))
+          ..orderBy([
+            OrderingTerm.asc(e.fechaEntregaAcordada),
+            OrderingTerm.asc(e.creadoEn),
+            OrderingTerm.asc(e.id),
+          ]);
+      case FiltroEncargos.conSaldo:
+        consulta
+          ..where(
+            e.estado.equals(EstadoEncargo.cancelado.codigo).not() &
+                e.saldoPendiente.isBiggerThanValue(0),
+          )
+          ..orderBy([
+            OrderingTerm.desc(e.saldoPendiente),
+            OrderingTerm.asc(e.fechaEntregaAcordada),
+            OrderingTerm.asc(e.id),
+          ]);
+    }
+    return consulta.watch().map(
+      (filas) => [
+        for (final fila in filas) _aFila(fila.readTable(e), fila.readTableOrNull(_base.clientes)),
+      ],
+    );
+  }
+
   static FilaEncargo _aFila(EncargoFila fila, ClienteFila? cliente) {
     DateTime? diaOpcional(String? iso) => iso == null ? null : diaDesdeIso(iso);
     return FilaEncargo(

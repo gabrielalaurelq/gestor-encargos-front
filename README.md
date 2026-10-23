@@ -261,7 +261,7 @@ Decisiones del usuario: una hoja "Cambiar estado" con el siguiente natural prime
 | Bloque | Contenido | Estado |
 |---|---|---|
 | **S5a** | Dashboard: cabecera, tres números, Atrasados y Entregas de hoy | ✅ |
-| **S5b** | Listas detrás de los números ("Encargos activos", "Saldo pendiente") | ⏳ |
+| **S5b** | Listas detrás de los números ("Encargos activos", "Saldo pendiente") | ✅ |
 | **S5c** | WhatsApp (nivel gratuito) | ⏳ |
 | **S5d** | Dictado por voz | ⏳ |
 
@@ -270,7 +270,16 @@ Decisiones del usuario (PRD v1.3): **activos** = Ingresado, En proceso, Listo y 
 ## S5a — Dashboard (`lib/features/dashboard/`)
 
 - Reemplaza el "Pendiente · Sprint 5" de la pestaña Inicio. Cabecera con el **nombre del negocio** (se guarda del login, `negocio.nombre` en metadatos; sin él, "Inicio") y "Hoy, jueves 23 de octubre".
-- **Tres números**: encargos activos, entregas de hoy y saldo pendiente (el saldo se achica antes que cortarse). Se vuelven tocables en el S5b.
+- **Tres números**: encargos activos, entregas de hoy y saldo pendiente (el saldo se achica antes que cortarse). Tocables desde el S5b.
 - **Atrasados** en rojo, con borde, del más antiguo al más reciente y sin límite: "Basta de pantalón · debía estar listo ayer". Después, **Entregas de hoy** con su etiqueta de estado. Un toque abre el Detalle. Sin nada pendiente: "Aún no tienes encargos pendientes. Toca + para crear uno."
 - Todo sale de Drift, sin red: `RepositorioDashboard` filtra y suma en SQL (índice local nuevo `encargos_entrega`). "Hoy" se recalcula al volver a la app.
 - **Deuda pagada:** `FilaEncargo` (`encargos/domain/fila_encargo.dart`) es el renglón común de las listas; `EncargoDeCliente` de la ficha ahora la extiende, y la regla de atrasado (`estaAtrasado`) es una sola para el Detalle, la ficha y el Dashboard.
+
+## S5b — Los números llevan a algo (`pantalla_lista_encargos.dart`, `tarjeta_encargo.dart`)
+
+- **Una sola pantalla de lista con filtro** (opción a), en `/encargos/lista/:filtro`:
+  - `activos`: los mismos que cuenta el número, por fecha de entrega (los atrasados arriba, con borde rojo y "debía estar listo…"; los demás con "Entrega: vie 24 oct") y su estado.
+  - `saldo`: los que deben, de la deuda mayor a la menor, con el monto en rojo; arriba "N encargos · deben S/ X en total". Incluye los entregados fiados.
+  - Vacías: "No hay encargos activos." / "Nadie te debe nada.". Una fila abre el Detalle.
+- **"Entregas hoy" baja a su sección** del Dashboard. Por eso el cuerpo del Dashboard es una columna y no un `ListView`: la sección tiene que estar construida aunque haya muchos atrasados encima.
+- `TarjetaEncargo` (`encargos/presentation/`) es la tarjeta común del Dashboard y sus listas; la Búsqueda (Sprint 7) puede reutilizar la pantalla con otro filtro.

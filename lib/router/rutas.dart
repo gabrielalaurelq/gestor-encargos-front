@@ -32,4 +32,7 @@ abstract final class Rutas {
   static String nuevoEncargoPara(String clienteId) =>
       Uri(path: nuevoEncargo, queryParameters: {'cliente': clienteId}).toString();
   static String encargo(String id) => '/encargos/$id';
+
+  /// La lista detrás de un número del Dashboard (S5b): `activos` o `saldo`.
+  static String listaEncargos(String filtro) => '/encargos/lista/$filtro';
 }

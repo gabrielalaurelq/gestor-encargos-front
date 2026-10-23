@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../features/dashboard/domain/dashboard.dart';
 import '../features/dashboard/presentation/pantalla_dashboard.dart';
+import '../features/dashboard/presentation/pantalla_lista_encargos.dart';
 import '../features/clientes/presentation/pantalla_clientes.dart';
 import '../features/clientes/presentation/pantalla_ficha_cliente.dart';
 import '../features/encargos/presentation/pantalla_detalle_encargo.dart';
@@ -121,6 +123,12 @@ GoRouter router(Ref ref) {
       GoRoute(
         path: Rutas.cambiosNoGuardados,
         builder: (_, _) => const PantallaCambiosNoGuardados(),
+      ),
+      GoRoute(
+        path: '/encargos/lista/:filtro',
+        builder: (_, estado) => PantallaListaEncargos(
+          filtro: FiltroEncargos.desde(estado.pathParameters['filtro']!) ?? FiltroEncargos.activos,
+        ),
       ),
       // `nuevo` va antes que `:id` para que no se tome como un id.
       GoRoute(
