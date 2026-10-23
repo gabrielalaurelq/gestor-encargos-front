@@ -61,6 +61,7 @@ void main() {
         TiposServicio.editar,
         TiposEncargo.crear,
         TiposEncargo.editar,
+        TiposEncargo.cambiarEstado,
         TiposTrabajo.crear,
         TiposTrabajo.editar,
         TiposTrabajo.eliminar,

@@ -33,6 +33,7 @@ const tiposDeOperacion = <String, TipoDeOperacion>{
   'editar_servicio': TipoDeOperacion('Cambiar servicio', Recurso.servicio),
   'crear_encargo': TipoDeOperacion('Crear encargo', Recurso.encargo, alta: true),
   'editar_encargo': TipoDeOperacion('Editar encargo', Recurso.encargo),
+  'cambiar_estado': TipoDeOperacion('Cambiar estado', Recurso.encargo),
   'crear_trabajo': TipoDeOperacion('Agregar trabajo', Recurso.encargo, alta: true),
   'editar_trabajo': TipoDeOperacion('Editar trabajo', Recurso.encargo),
   'eliminar_trabajo': TipoDeOperacion('Eliminar trabajo', Recurso.encargo),

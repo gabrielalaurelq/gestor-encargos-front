@@ -20,6 +20,7 @@ import '../domain/estado_encargo.dart';
 abstract final class TiposEncargo {
   static const crear = TiposOperacion.crearEncargo;
   static const editar = 'editar_encargo';
+  static const cambiarEstado = 'cambiar_estado';
 }
 
 class RepositorioEncargos {
@@ -185,6 +186,58 @@ class RepositorioEncargos {
       return true;
     });
   }
+
+  /// `PATCH /encargos/{id}/estado` con la fecha del teléfono (Doc 5 v1.4),
+  /// y sus efectos en Drift como los aplica el backend (`transicionarA`):
+  /// LISTO marca `fecha_listo` si no la tenía; ENTREGADO marca
+  /// `fecha_entrega_real` y, si se saltó LISTO, también `fecha_listo` con el
+  /// mismo día. Pausar o cancelar no borra ninguna fecha.
+  ///
+  /// El estado de partida se lee de Drift dentro de la transacción, no de lo
+  /// que mostraba la pantalla. Al mismo estado devuelve `false` sin encolar
+  /// nada; una transición que el backend rechazaría da
+  /// `TRANSICION_INVALIDA`. El aviso de saldo pendiente al entregar es de la
+  /// pantalla, antes de llamar (PRD módulo 6: avisa, no bloquea).
+  Future<bool> cambiarEstado(String encargoId, EstadoEncargo destino) =>
+      _base.transaction(() async {
+        final fila = await (_base.select(
+          _base.encargos,
+        )..where((e) => e.id.equals(encargoId))).getSingleOrNull();
+        if (fila == null) throw StateError('No existe el encargo $encargoId');
+        final actual = EstadoEncargo.desde(fila.estado);
+        if (actual == destino) return false;
+        if (actual == null || !actual.puedePasarA(destino)) {
+          throw ValorInvalido(
+            'TRANSICION_INVALIDA',
+            actual == EstadoEncargo.entregado
+                ? 'Un encargo entregado ya no cambia de estado.'
+                : 'Un encargo ${actual?.etiqueta.toLowerCase() ?? fila.estado} no puede '
+                      'pasar a ${destino.etiqueta.toLowerCase()}.',
+          );
+        }
+        final hoy = isoDesdeDia(hoyDelNegocio(_reloj()));
+        final listo = destino == EstadoEncargo.listo || destino == EstadoEncargo.entregado;
+        await (_base.update(_base.encargos)..where((e) => e.id.equals(encargoId))).write(
+          EncargosCompanion(
+            estado: Value(destino.codigo),
+            fechaListo: listo && fila.fechaListo == null ? Value(hoy) : const Value.absent(),
+            fechaEntregaReal: destino == EstadoEncargo.entregado && fila.fechaEntregaReal == null
+                ? Value(hoy)
+                : const Value.absent(),
+          ),
+        );
+        await _outbox.encolar(
+          OperacionNueva(
+            tipo: TiposEncargo.cambiarEstado,
+            metodo: 'PATCH',
+            ruta: '/encargos/$encargoId/estado',
+            cuerpo: {'estado': destino.codigo, 'fecha': hoy},
+            entidadId: encargoId,
+            encargoId: encargoId,
+          ),
+        );
+        return true;
+      });
 
   Future<Monto> _sumaTrabajos(String encargoId) async {
     final suma = _base.trabajos.precio.sum();

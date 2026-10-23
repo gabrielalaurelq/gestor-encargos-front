@@ -233,3 +233,18 @@ Estado del encargo ("Cambiar estado") va en el Sprint 4.
 - `RepositorioTrabajos`: `objeto_recibido_id` viaja en el `POST` solo si hay objeto, y en el `PATCH` solo si cambió (`null` lo quita). En `editar`, omitir `objetoId` deja el vínculo como está. El objeto debe estar en el mismo encargo (`OBJETO_NO_EN_ENCARGO`, como el backend). El dinero no cambia.
 - **Trabajos agrupados por objeto** (`agruparPorObjeto`): un subtítulo por objeto con trabajos, en el orden de Objetos recibidos, y **"Sin objeto"** al final. Sin vínculos, la lista se ve igual que antes.
 - **Un vínculo a un objeto que ya no está cuenta como "Sin objeto"** (opción a, decisión del usuario): es lo que hará el servidor al sincronizar.
+
+## Sprint 4
+
+| Bloque | Contenido | Estado |
+|---|---|---|
+| **S4a** | Reglas de estado (copia de la tabla del backend) y `cambiarEstado` en Drift + Outbox | ✅ |
+| **S4b** | Botón y hoja "Cambiar estado" en el Detalle, aviso de saldo y confirmaciones | ⏳ |
+
+Decisiones del usuario: una hoja "Cambiar estado" con el siguiente natural primero (Doc 6); al entregar con saldo se pregunta antes ("¿Entregar igual?"); solo ENTREGADO y CANCELADO piden confirmación; la nota al pausar/cancelar espera al módulo Notas (Sprint 8); **de LISTO no se vuelve a EN PROCESO** (regla del backend, se mantiene).
+
+## S4a — Reglas de estado (`estado_encargo.dart`, `RepositorioEncargos.cambiarEstado`)
+
+- `EstadoEncargo.destinos` / `puedePasarA`: copia de la tabla de `estado-encargo.ts`, con un test que la compara caso por caso (36 pares). Saltos hacia adelante sí; retroceder no; PAUSADO/CANCELADO desde cualquier activo y de vuelta a cualquier activo; ENTREGADO terminal.
+- `cambiarEstado(encargoId, destino)`: lee el estado **de Drift dentro de la transacción**, aplica los efectos del backend (`fecha_listo` solo si no la tenía; al entregar, `fecha_entrega_real` y, si se saltó LISTO, las dos con el mismo día; pausar/cancelar no borra fechas) y encola `PATCH /encargos/{id}/estado` con `{estado, fecha}` del teléfono. Mismo estado → `false` sin encolar; transición no permitida → `TRANSICION_INVALIDA`.
+- Tipo `cambiar_estado` en `tiposDeOperacion` (un rechazo se resuelve con "Descartar").

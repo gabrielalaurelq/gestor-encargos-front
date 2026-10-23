@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/features/encargos/data/repositorio_encargos.dart';
 import 'package:gestor_encargos/features/encargos/domain/encargo.dart';
+import 'package:gestor_encargos/features/encargos/domain/estado_encargo.dart';
 import 'package:gestor_encargos/shared/domain/monto.dart';
 import 'package:gestor_encargos/shared/domain/valor_invalido.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
@@ -361,6 +362,104 @@ void main() {
       await expectLater(
         conDescuento(actual, Monto.desde(1)),
         throwsA(isA<ValorInvalido>().having((e) => e.codigo, 'codigo', 'ENCARGO_CERRADO')),
+      );
+      expect(await cola(), isEmpty);
+    });
+  });
+
+  group('cambiar estado (S4a)', () {
+    Future<void> encargoEn(String estado, {String? listo, String? entregaReal}) => insertarEncargo(
+      base,
+      id: 'e1',
+      clienteId: 'ana',
+      creadoEn: '2026-10-01T15:00:00.000Z',
+      estado: estado,
+      listo: listo,
+      entregaReal: entregaReal,
+    );
+
+    Future<EncargoFila> fila() => base.select(base.encargos).getSingle();
+    Matcher rechazo(String codigo) =>
+        throwsA(isA<ValorInvalido>().having((e) => e.codigo, 'codigo', codigo));
+
+    test('LISTO marca fecha_listo con el día del teléfono y encola el PATCH', () async {
+      await encargoEn('EN_PROCESO');
+
+      expect(await repositorio.cambiarEstado('e1', EstadoEncargo.listo), isTrue);
+
+      final e = await fila();
+      expect([e.estado, e.fechaListo, e.fechaEntregaReal], ['LISTO', '2026-10-22', null]);
+      final op = (await cola()).single;
+      expect(
+        [op.tipo, op.metodo, op.ruta, op.entidadId, op.encargoId],
+        [TiposEncargo.cambiarEstado, 'PATCH', '/encargos/e1/estado', 'e1', 'e1'],
+      );
+      expect(op.cuerpoJson, {'estado': 'LISTO', 'fecha': '2026-10-22'});
+    });
+
+    test('entregar saltándose LISTO deja las dos fechas iguales (PRD 6)', () async {
+      await encargoEn('INGRESADO');
+
+      await repositorio.cambiarEstado('e1', EstadoEncargo.entregado);
+
+      final e = await fila();
+      expect(
+        [e.estado, e.fechaListo, e.fechaEntregaReal],
+        ['ENTREGADO', '2026-10-22', '2026-10-22'],
+      );
+    });
+
+    test('pausar y volver a LISTO conserva la primera fecha_listo', () async {
+      await encargoEn('LISTO', listo: '2026-10-20');
+
+      await repositorio.cambiarEstado('e1', EstadoEncargo.pausado);
+      expect((await fila()).fechaListo, '2026-10-20', reason: 'pausar no borra fechas');
+      await repositorio.cambiarEstado('e1', EstadoEncargo.listo);
+
+      expect((await fila()).fechaListo, '2026-10-20');
+      expect([for (final op in await cola()) op.cuerpoJson!['estado']], ['PAUSADO', 'LISTO']);
+    });
+
+    test('cancelar y reactivar a un estado activo', () async {
+      await encargoEn('EN_PROCESO');
+
+      await repositorio.cambiarEstado('e1', EstadoEncargo.cancelado);
+      await repositorio.cambiarEstado('e1', EstadoEncargo.enProceso);
+
+      expect((await fila()).estado, 'EN_PROCESO');
+      expect(await cola(), hasLength(2));
+    });
+
+    test('al mismo estado no encola nada', () async {
+      await encargoEn('EN_PROCESO');
+
+      expect(await repositorio.cambiarEstado('e1', EstadoEncargo.enProceso), isFalse);
+      expect(await cola(), isEmpty);
+    });
+
+    test('de LISTO a EN PROCESO: TRANSICION_INVALIDA y nada cambia', () async {
+      await encargoEn('LISTO', listo: '2026-10-20');
+
+      await expectLater(
+        repositorio.cambiarEstado('e1', EstadoEncargo.enProceso),
+        rechazo('TRANSICION_INVALIDA'),
+      );
+      expect((await fila()).estado, 'LISTO');
+      expect(await cola(), isEmpty);
+    });
+
+    test('entregado es terminal', () async {
+      await encargoEn('ENTREGADO', listo: '2026-10-20', entregaReal: '2026-10-21');
+
+      await expectLater(
+        repositorio.cambiarEstado('e1', EstadoEncargo.cancelado),
+        throwsA(
+          isA<ValorInvalido>().having(
+            (e) => e.mensaje,
+            'mensaje',
+            'Un encargo entregado ya no cambia de estado.',
+          ),
+        ),
       );
       expect(await cola(), isEmpty);
     });
