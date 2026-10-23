@@ -13,6 +13,8 @@ import '../../../shared/presentation/widgets/mensaje_pantalla.dart';
 import '../../../shared/sync/providers.dart';
 import '../application/encargos.dart';
 import '../domain/encargo.dart';
+import '../domain/estado_encargo.dart';
+import 'avisar_whatsapp.dart';
 import 'etiqueta_estado.dart';
 import 'hoja_cambiar_estado.dart';
 import 'hoja_editar_encargo.dart';
@@ -23,8 +25,8 @@ import 'seccion_trabajos.dart';
 /// Detalle de Encargo (Doc 6, pantalla 6): la cabecera (cliente,
 /// descripción, entrega, ubicación, total y saldo, como en el wireframe), las
 /// secciones Objetos (S3d1), Trabajos (S3b1) y Pagos (S3c), en el orden del
-/// Doc 6, y abajo, fijo, "Cambiar estado" (S4b). Notas y Fotos llegan en los
-/// Sprints 7-8, y WhatsApp, al lado de "Cambiar estado", en el Sprint 5.
+/// Doc 6, y abajo, fijos, "Cambiar estado" (S4b) y "WhatsApp" (S5c). Notas y
+/// Fotos llegan en los Sprints 7-8.
 class PantallaDetalleEncargo extends ConsumerWidget {
   const PantallaDetalleEncargo({super.key, required this.encargoId});
 
@@ -59,7 +61,7 @@ class PantallaDetalleEncargo extends ConsumerWidget {
   }
 }
 
-class _Detalle extends StatelessWidget {
+class _Detalle extends ConsumerWidget {
   const _Detalle({required this.encargo, required this.rechazado});
 
   final Encargo encargo;
@@ -75,16 +77,28 @@ class _Detalle extends StatelessWidget {
       ..showSnackBar(const SnackBar(content: Text('Cambios guardados')));
   }
 
-  Future<void> _cambiarEstado(BuildContext context) async {
+  /// Al quedar Listo, el aviso trae "Avisar": el flujo "Marcar Listo y
+  /// avisar" del Doc 6 en un toque (decisión del usuario, P3).
+  Future<void> _cambiarEstado(BuildContext context, WidgetRef ref) async {
     final nuevo = await HojaCambiarEstado.abrir(context, encargo);
     if (nuevo == null || !context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('Ahora: ${nuevo.etiqueta}')));
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Ahora: ${nuevo.etiqueta}'),
+          action: nuevo == EstadoEncargo.listo
+              ? SnackBarAction(
+                  label: 'Avisar',
+                  onPressed: () => avisarPorWhatsapp(context, ref, encargo.id),
+                )
+              : null,
+        ),
+      );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tema = Theme.of(context);
     final hoy = hoyDelNegocio();
     final numero = encargo.numero;
@@ -166,23 +180,53 @@ class _Detalle extends StatelessWidget {
         ],
       ),
       // Fijo abajo como en el wireframe: a mano del pulgar sin desplazarse.
-      bottomNavigationBar: cambiaEstado
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Medidas.espacio,
-                  8,
-                  Medidas.espacio,
-                  Medidas.espacio,
-                ),
-                child: FilledButton.icon(
-                  onPressed: () => _cambiarEstado(context),
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Cambiar estado'),
-                ),
-              ),
-            )
-          : null,
+      // Fijos abajo como en el wireframe: a mano del pulgar sin desplazarse.
+      bottomNavigationBar: _Acciones(
+        cambiarEstado: cambiaEstado ? () => _cambiarEstado(context, ref) : null,
+        avisar: () => avisarPorWhatsapp(context, ref, encargo.id),
+      ),
+    );
+  }
+}
+
+/// "Cambiar estado" y "WhatsApp" lado a lado (Doc 6, wireframe). Sin a dónde
+/// cambiar (entregado), solo WhatsApp: sirve para cobrar lo fiado. Con letra
+/// muy grande no caben juntos en 360dp y van uno sobre otro.
+class _Acciones extends StatelessWidget {
+  const _Acciones({required this.cambiarEstado, required this.avisar});
+
+  final VoidCallback? cambiarEstado;
+  final VoidCallback avisar;
+
+  @override
+  Widget build(BuildContext context) {
+    final botones = [
+      if (cambiarEstado != null)
+        FilledButton.icon(
+          onPressed: cambiarEstado,
+          icon: const Icon(Icons.check_circle_outline),
+          label: const Text('Cambiar estado'),
+        ),
+      FilledButton.icon(
+        onPressed: avisar,
+        style: FilledButton.styleFrom(backgroundColor: Colores.verde),
+        icon: const Icon(Icons.chat_outlined),
+        label: const Text('WhatsApp', semanticsLabel: 'Avisar por WhatsApp'),
+      ),
+    ];
+    final apilados = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Medidas.espacio, 8, Medidas.espacio, Medidas.espacio),
+        child: apilados
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 8,
+                children: botones,
+              )
+            : Row(spacing: 10, children: [for (final boton in botones) Expanded(child: boton)]),
+      ),
     );
   }
 }

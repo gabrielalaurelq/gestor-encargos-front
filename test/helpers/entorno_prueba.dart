@@ -12,6 +12,7 @@ import 'package:gestor_encargos/features/sesion/domain/estado_sesion.dart';
 import 'package:gestor_encargos/shared/infrastructure/auth/almacen_tokens.dart';
 import 'package:gestor_encargos/shared/infrastructure/config/ambiente.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
+import 'package:gestor_encargos/shared/infrastructure/enlaces.dart';
 import 'package:gestor_encargos/shared/infrastructure/http/cliente_api.dart';
 import 'package:gestor_encargos/shared/infrastructure/providers.dart';
 import 'package:gestor_encargos/shared/sync/motor_sync.dart';
@@ -34,6 +35,20 @@ class IdentidadFalsa implements ProveedorIdentidad {
 
   @override
   Future<void> cerrar() async => cierres++;
+}
+
+/// Abre "enlaces" sin salir de la prueba: los anota.
+class EnlacesFalsos implements AbridorEnlaces {
+  final abiertos = <Uri>[];
+
+  /// `false` simula que el sistema no pudo abrirlo.
+  bool resultado = true;
+
+  @override
+  Future<bool> abrir(Uri enlace) async {
+    abiertos.add(enlace);
+    return resultado;
+  }
 }
 
 class NotificacionesFalsas implements TokenNotificaciones {
@@ -83,6 +98,7 @@ class EntornoPrueba {
   final identidad = IdentidadFalsa();
   final notificaciones = NotificacionesFalsas();
   final motor = MotorSyncFalso();
+  final enlaces = EnlacesFalsos();
   int pendientes = 0;
 
   List<Override> get overrides => [
@@ -100,6 +116,7 @@ class EntornoPrueba {
     tokenNotificacionesProvider.overrideWithValue(notificaciones),
     cambiosPendientesProvider.overrideWith((_) => Stream.value(pendientes)),
     motorSyncProvider.overrideWithValue(motor),
+    abridorEnlacesProvider.overrideWithValue(enlaces),
   ];
 
   /// `POST /auth/login` responde como el backend real para [negocioId].

@@ -5,6 +5,7 @@ import 'auth/aviso_sesion.dart';
 import 'conectividad.dart';
 import 'config/ambiente.dart';
 import 'db/base_datos.dart';
+import 'enlaces.dart';
 import 'http/cliente_api.dart';
 
 part 'providers.g.dart';
@@ -45,3 +46,7 @@ ClienteApi clienteApi(Ref ref) {
     alExpirarSesion: aviso.sesionExpirada,
   );
 }
+
+/// Deep links fuera de la app (WhatsApp, S5c).
+@Riverpod(keepAlive: true)
+AbridorEnlaces abridorEnlaces(Ref ref) => const AbridorEnlacesSistema();

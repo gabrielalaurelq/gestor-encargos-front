@@ -262,7 +262,7 @@ Decisiones del usuario: una hoja "Cambiar estado" con el siguiente natural prime
 |---|---|---|
 | **S5a** | Dashboard: cabecera, tres números, Atrasados y Entregas de hoy | ✅ |
 | **S5b** | Listas detrás de los números ("Encargos activos", "Saldo pendiente") | ✅ |
-| **S5c** | WhatsApp (nivel gratuito) | ⏳ |
+| **S5c** | WhatsApp (nivel gratuito) | ✅ |
 | **S5d** | Dictado por voz | ⏳ |
 
 Decisiones del usuario (PRD v1.3): **activos** = Ingresado, En proceso, Listo y Pausado; el **saldo pendiente** suma lo que deben los no cancelados, **entregados fiados incluidos** (solo saldos positivos); cada número lleva a algo; los listos que no se recogen no tienen sección (los cubre Recordatorios, Sprint 7). "Entregas de hoy" no incluye lo ya entregado hoy.
@@ -283,3 +283,12 @@ Decisiones del usuario (PRD v1.3): **activos** = Ingresado, En proceso, Listo y 
   - Vacías: "No hay encargos activos." / "Nadie te debe nada.". Una fila abre el Detalle.
 - **"Entregas hoy" baja a su sección** del Dashboard. Por eso el cuerpo del Dashboard es una columna y no un `ListView`: la sección tiene que estar construida aunque haya muchos atrasados encima.
 - `TarjetaEncargo` (`encargos/presentation/`) es la tarjeta común del Dashboard y sus listas; la Búsqueda (Sprint 7) puede reutilizar la pantalla con otro filtro.
+
+## S5c — Avisar por WhatsApp (`mensaje_whatsapp.dart`, `avisar_whatsapp.dart`, `shared/infrastructure/enlaces.dart`)
+
+- Botón verde **"WhatsApp"** en la barra fija del Detalle, junto a "Cambiar estado" (wireframe). En un entregado va solo, para cobrar lo fiado. Con letra muy grande (más de 130%), los dos botones van uno sobre otro.
+- Abre `https://wa.me/<E.164 sin +>?text=…` con el **mensaje del estado actual** (Doc 6 v1.1, decisión P1): Listo = Caso 12 (sin saldo, se omite); Ingresado/En proceso = encargo y fecha de entrega; Entregado con saldo = recordatorio de pago; el resto, solo saludo y encargo. El texto va con `%20`. El envío lo hace el negociante en WhatsApp.
+- **Al marcar Listo**, el aviso "Ahora: Listo" trae **"Avisar"** (P3); el mensaje se arma con el encargo leído al tocar, ya en Listo.
+- **Sin teléfono** (P2): "Ana García no tiene teléfono" → "Agregar teléfono" abre la hoja del cliente; al guardar, sigue a WhatsApp.
+- Si el sistema no puede abrir el enlace: "No se pudo abrir WhatsApp.". Sin WhatsApp instalado, Android abre la página de `wa.me` en el navegador.
+- `AbridorEnlaces` (interfaz + `url_launcher`, nueva dependencia) se reemplaza en los tests por `EnlacesFalsos`, que anota los enlaces. El manifiesto de Android declara la consulta `https` (Android 11+).
