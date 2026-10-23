@@ -6,6 +6,7 @@ import '../../../shared/presentation/tema/tema.dart';
 import '../application/encargos.dart';
 import '../domain/encargo.dart';
 import '../domain/estado_encargo.dart';
+import '../domain/objeto_recibido.dart';
 import '../domain/trabajo.dart';
 import 'hoja_agregar_trabajo.dart';
 import 'hoja_trabajo.dart';
@@ -14,6 +15,11 @@ import 'hoja_trabajo.dart';
 /// El chip "Catálogo" distingue el precio fijo del personalizado. Con el
 /// encargo entregado o cancelado se ve pero no se cambia (decisión del
 /// usuario).
+///
+/// Si algún trabajo está vinculado a un objeto, se agrupan por objeto, en el
+/// orden de Objetos recibidos, y al final "Sin objeto" (S3d2). Un vínculo a
+/// un objeto que ya no está cuenta como sin objeto, igual que hará el
+/// servidor. Sin vínculos, la lista se ve como siempre.
 class SeccionTrabajos extends ConsumerWidget {
   const SeccionTrabajos({super.key, required this.encargo});
 
@@ -45,6 +51,7 @@ class SeccionTrabajos extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tema = Theme.of(context);
     final trabajos = ref.watch(trabajosProvider(encargo.id)).value ?? const <Trabajo>[];
+    final objetos = ref.watch(objetosProvider(encargo.id)).value ?? const <ObjetoRecibido>[];
     final estado = encargo.estado;
     final cerrado = estado?.cerrado ?? false;
     return Card(
@@ -60,8 +67,11 @@ class SeccionTrabajos extends ConsumerWidget {
                 child: Text('Todavía no hay trabajos.'),
               )
             else
-              for (final trabajo in trabajos)
-                _Fila(trabajo: trabajo, alTocar: cerrado ? null : () => _abrir(context, trabajo)),
+              for (final (titulo, grupo) in agruparPorObjeto(trabajos, objetos)) ...[
+                if (titulo != null) _Subtitulo(titulo),
+                for (final trabajo in grupo)
+                  _Fila(trabajo: trabajo, alTocar: cerrado ? null : () => _abrir(context, trabajo)),
+              ],
             const SizedBox(height: 8),
             if (cerrado)
               Text(
@@ -78,6 +88,50 @@ class SeccionTrabajos extends ConsumerWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Los trabajos en grupos `(título, trabajos)`. Sin ningún vínculo vigente,
+/// un solo grupo sin título; si no, uno por objeto con trabajos y "Sin
+/// objeto" al final (si hay).
+@visibleForTesting
+List<(String?, List<Trabajo>)> agruparPorObjeto(
+  List<Trabajo> trabajos,
+  List<ObjetoRecibido> objetos,
+) {
+  final grupos = [
+    for (final objeto in objetos)
+      (
+        objeto.descripcion,
+        [
+          for (final trabajo in trabajos)
+            if (trabajo.objetoRecibidoId == objeto.id) trabajo,
+        ],
+      ),
+  ].where((grupo) => grupo.$2.isNotEmpty).toList();
+  if (grupos.isEmpty) return [(null, trabajos)];
+  final vigentes = {for (final objeto in objetos) objeto.id};
+  final sueltos = [
+    for (final trabajo in trabajos)
+      if (!vigentes.contains(trabajo.objetoRecibidoId)) trabajo,
+  ];
+  return [...grupos, if (sueltos.isNotEmpty) ('Sin objeto', sueltos)];
+}
+
+class _Subtitulo extends StatelessWidget {
+  const _Subtitulo(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 2),
+      child: Text(
+        texto,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colores.textoSecundario),
       ),
     );
   }

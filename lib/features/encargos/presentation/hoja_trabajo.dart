@@ -7,14 +7,17 @@ import '../../../shared/presentation/tema/colores.dart';
 import '../../../shared/presentation/tema/tema.dart';
 import '../../../shared/presentation/widgets/campo_precio.dart';
 import '../application/encargos.dart';
+import '../domain/objeto_recibido.dart';
 import '../domain/trabajo.dart';
+import 'selector_objeto.dart';
 
 /// Lo que pasó en la hoja, para que el Detalle lo confirme.
 enum AccionTrabajo { guardado, eliminado }
 
 /// Editar o eliminar un trabajo. En uno del catálogo el precio queda fijo
 /// (Doc 2, invariante 13) y la descripción sí se edita (decisión del
-/// usuario).
+/// usuario). Si el encargo tiene objetos, también se cambia para cuál es
+/// (S3d2).
 class HojaTrabajo extends ConsumerStatefulWidget {
   const HojaTrabajo({super.key, required this.trabajo});
 
@@ -36,6 +39,7 @@ class HojaTrabajo extends ConsumerStatefulWidget {
 class _EstadoHojaTrabajo extends ConsumerState<HojaTrabajo> {
   late final _descripcion = TextEditingController(text: widget.trabajo.descripcion);
   late final _precio = TextEditingController(text: textoEditable(widget.trabajo.precio));
+  late String? _objetoId = widget.trabajo.objetoRecibidoId;
   String? _errorDescripcion;
   String? _errorPrecio;
   bool _guardando = false;
@@ -85,7 +89,7 @@ class _EstadoHojaTrabajo extends ConsumerState<HojaTrabajo> {
     await _ejecutar(() async {
       final cambio = await ref
           .read(repositorioTrabajosProvider)
-          .editar(trabajo, descripcion: _descripcion.text, precio: precio);
+          .editar(trabajo, descripcion: _descripcion.text, precio: precio, objetoId: _objetoId);
       return cambio ? AccionTrabajo.guardado : null;
     });
   }
@@ -113,6 +117,7 @@ class _EstadoHojaTrabajo extends ConsumerState<HojaTrabajo> {
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
     final trabajo = widget.trabajo;
+    final objetos = ref.watch(objetosProvider(trabajo.encargoId)).value ?? const <ObjetoRecibido>[];
     return Padding(
       padding: EdgeInsets.fromLTRB(
         Medidas.espacio,
@@ -148,6 +153,14 @@ class _EstadoHojaTrabajo extends ConsumerState<HojaTrabajo> {
             ] else
               CampoPrecio(controller: _precio, errorText: _errorPrecio, alEnviar: _guardar),
             const SizedBox(height: Medidas.espacio),
+            if (objetos.isNotEmpty) ...[
+              SelectorObjeto(
+                objetos: objetos,
+                elegido: _objetoId,
+                alElegir: _guardando ? null : (id) => setState(() => _objetoId = id),
+              ),
+              const SizedBox(height: Medidas.espacio),
+            ],
             FilledButton(onPressed: _guardando ? null : _guardar, child: const Text('Guardar')),
             const SizedBox(height: 8),
             OutlinedButton(

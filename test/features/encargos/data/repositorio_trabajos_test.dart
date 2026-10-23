@@ -200,4 +200,109 @@ void main() {
     final lista = await trabajos.observar('e1').first;
     expect([for (final Trabajo t in lista) t.descripcion], ['B', 'A']);
   });
+
+  group('vínculo con un objeto (S3d2)', () {
+    Future<void> objeto(String id, {String encargoId = 'e1'}) => base
+        .into(base.objetosRecibidos)
+        .insert(
+          ObjetosRecibidosCompanion.insert(
+            id: id,
+            creadoEn: marca,
+            actualizadoEn: marca,
+            encargoId: encargoId,
+            descripcion: 'Objeto $id',
+          ),
+        );
+
+    Matcher rechazo(String codigo) =>
+        throwsA(isA<ValorInvalido>().having((e) => e.codigo, 'codigo', codigo));
+
+    test('agregar con objeto: se guarda y viaja; sin objeto no viaja la clave', () async {
+      await objeto('o1');
+
+      final conObjeto = await trabajos.agregarDelCatalogo('e1', basta, objetoId: 'o1');
+      await trabajos.agregarPersonalizado(
+        'e1',
+        descripcion: 'Zurcido',
+        precio: Monto.desde(10),
+        objetoId: 'o1',
+      );
+      await trabajos.agregarPersonalizado('e1', descripcion: 'Suelto', precio: Monto.cero);
+
+      expect(conObjeto.objetoRecibidoId, 'o1');
+      final lista = await trabajos.observar('e1').first;
+      expect([for (final t in lista) t.objetoRecibidoId], ['o1', 'o1', null]);
+      final cuerpos = [for (final op in await cola()) op.cuerpoJson];
+      expect(cuerpos[0], {'id': 't1', 'servicio_id': 's1', 'objeto_recibido_id': 'o1'});
+      expect(cuerpos[1], containsPair('objeto_recibido_id', 'o1'));
+      expect(cuerpos[2]!.containsKey('objeto_recibido_id'), isFalse);
+    });
+
+    test('un objeto de otro encargo: OBJETO_NO_EN_ENCARGO y nada se guarda', () async {
+      await insertarEncargo(base, id: 'e2', clienteId: 'ana', numero: 2, creadoEn: marca);
+      await objeto('o9', encargoId: 'e2');
+
+      await expectLater(
+        trabajos.agregarDelCatalogo('e1', basta, objetoId: 'o9'),
+        rechazo('OBJETO_NO_EN_ENCARGO'),
+      );
+      expect(await base.select(base.trabajos).get(), isEmpty);
+      expect(await cola(), isEmpty);
+    });
+
+    test('editar: vincular, cambiar y quitar; sin objetoId no se toca', () async {
+      await objeto('o1');
+      await objeto('o2');
+      var trabajo = await trabajos.agregarDelCatalogo('e1', basta);
+
+      expect(await trabajos.editar(trabajo, descripcion: 'Basta de jean', objetoId: 'o1'), isTrue);
+      expect((await cola()).last.cuerpoJson, {'objeto_recibido_id': 'o1'});
+      trabajo = (await trabajos.observar('e1').first).single;
+      expect(trabajo.objetoRecibidoId, 'o1');
+
+      expect(await trabajos.editar(trabajo, descripcion: 'Basta azul'), isTrue);
+      expect((await cola()).last.cuerpoJson, {'descripcion': 'Basta azul'});
+      trabajo = (await trabajos.observar('e1').first).single;
+      expect(trabajo.objetoRecibidoId, 'o1', reason: 'sin objetoId el vínculo se queda');
+
+      await trabajos.editar(trabajo, descripcion: 'Basta azul', objetoId: 'o2');
+      expect((await cola()).last.cuerpoJson, {'objeto_recibido_id': 'o2'});
+      trabajo = (await trabajos.observar('e1').first).single;
+
+      await trabajos.editar(trabajo, descripcion: 'Basta azul', objetoId: null);
+      expect((await cola()).last.cuerpoJson, {'objeto_recibido_id': null});
+      expect((await trabajos.observar('e1').first).single.objetoRecibidoId, isNull);
+      expect(montos(await encargo()), [2000, 0, 2000], reason: 'el dinero no cambia');
+    });
+
+    test('editar hacia un objeto que no está: se rechaza sin escribir', () async {
+      final trabajo = await trabajos.agregarDelCatalogo('e1', basta);
+
+      await expectLater(
+        trabajos.editar(trabajo, descripcion: 'Basta de jean', objetoId: 'fantasma'),
+        rechazo('OBJETO_NO_EN_ENCARGO'),
+      );
+      expect(await cola(), hasLength(1));
+    });
+
+    test('un vínculo que ya no está no impide editar lo demás', () async {
+      await base
+          .into(base.trabajos)
+          .insert(
+            TrabajosCompanion.insert(
+              id: 'tx',
+              creadoEn: marca,
+              actualizadoEn: marca,
+              encargoId: 'e1',
+              objetoRecibidoId: const Value('borrado'),
+              descripcion: 'Huérfano',
+              precio: 0,
+            ),
+          );
+      final trabajo = (await trabajos.observar('e1').first).single;
+
+      expect(await trabajos.editar(trabajo, descripcion: 'Huérfano 2'), isTrue);
+      expect((await cola()).single.cuerpoJson, {'descripcion': 'Huérfano 2'});
+    });
+  });
 }

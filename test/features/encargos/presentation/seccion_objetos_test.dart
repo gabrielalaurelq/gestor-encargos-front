@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_encargos/app.dart';
+import 'package:gestor_encargos/features/encargos/presentation/seccion_objetos.dart';
 import 'package:gestor_encargos/router/router.dart';
 import 'package:gestor_encargos/router/rutas.dart';
 import 'package:gestor_encargos/shared/infrastructure/db/base_datos.dart';
@@ -89,6 +90,11 @@ void main() {
       if (op.tipo.endsWith('_objeto')) op,
   ];
 
+  /// Un texto dentro de esta sección (con vínculos, Trabajos repite el
+  /// objeto como subtítulo).
+  Finder enObjetos(String texto) =>
+      find.descendant(of: find.byType(SeccionObjetos), matching: find.text(texto));
+
   final agregarObjeto = find.widgetWithText(OutlinedButton, 'Agregar objeto');
   final descripcion = find.widgetWithText(TextField, 'Descripción');
 
@@ -134,14 +140,14 @@ void main() {
     await abrirDetalle(tester);
 
     expect(find.text('2 trabajos'), findsOneWidget);
-    await tocar(tester, find.text('Pantalón'));
+    await tocar(tester, enObjetos('Pantalón'));
     expect(find.text('Editar objeto'), findsOneWidget);
     await tester.enterText(descripcion, 'Pantalón de vestir');
     await tester.pump();
     await tocar(tester, find.widgetWithText(FilledButton, 'Guardar'));
 
     expect(find.text('Cambios guardados'), findsOneWidget);
-    expect(find.text('Pantalón de vestir'), findsOneWidget);
+    expect(enObjetos('Pantalón de vestir'), findsOneWidget);
     expect((await deObjetos()).single.metodo, 'PATCH');
   });
 
@@ -151,7 +157,7 @@ void main() {
     await trabajo('t2', objeto: 'o1');
     await abrirDetalle(tester);
 
-    await tocar(tester, find.text('Pantalón'));
+    await tocar(tester, enObjetos('Pantalón'));
     await tocar(tester, find.widgetWithText(OutlinedButton, 'Eliminar objeto'));
     expect(
       find.text('"Pantalón" sale del encargo. Sus 2 trabajos se quedan, sin objeto.'),
@@ -172,7 +178,7 @@ void main() {
 
     expect(find.text('Ya fue entregado: los objetos no se cambian.'), findsOneWidget);
     expect(agregarObjeto, findsNothing);
-    await tocar(tester, find.text('Pantalón'));
+    await tocar(tester, enObjetos('Pantalón'));
     expect(find.text('Editar objeto'), findsNothing);
   });
 }

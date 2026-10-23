@@ -180,7 +180,7 @@ Clientes y Catálogo de servicios (Doc 11), en tres bloques. El catálogo va pri
 | **S3b2** | Descuento en "Editar encargo", validado contra la suma de trabajos | ✅ |
 | **S3c** | Pagos (S3c1 backend `GET /origenes-pago` + Docs 5/7; S3c2 app) | ✅ |
 | **S3d1** | Objetos recibidos (sin foto: llega con Fotografías, Doc 11 v1.3) | ✅ |
-| **S3d2** | Vínculo trabajo → objeto y Trabajos agrupados por objeto | ⏳ |
+| **S3d2** | Vínculo trabajo → objeto y Trabajos agrupados por objeto | ✅ |
 
 Estado del encargo ("Cambiar estado") va en el Sprint 4.
 
@@ -226,3 +226,10 @@ Estado del encargo ("Cambiar estado") va en el Sprint 4.
 - **Entregado o cancelado: los objetos se ven pero no se cambian** (decisión del usuario, misma regla que Trabajos), comprobado en el repositorio (`ENCARGO_CERRADO`).
 - **Sin foto** (decisión del usuario): la foto del objeto llega con Fotografías en el Sprint 7 (Doc 11 v1.3).
 - Tipos `crear_objeto` / `editar_objeto` / `eliminar_objeto` en `tiposDeOperacion`. `Trabajo` ahora lleva `objetoRecibidoId` (lo usa el conteo; el vínculo editable es el S3d2). `leerEstadoLocal` (`data/estado_local.dart`) reemplaza la consulta repetida en Trabajos, Pagos y Objetos.
+
+## S3d2 — Vínculo trabajo → objeto (`selector_objeto.dart`, `seccion_trabajos.dart`)
+
+- **"¿Para qué objeto?"** (`SelectorObjeto`: "Ninguno" + los objetos) en Agregar trabajo y en Editar trabajo, **solo si el encargo tiene objetos**. Al agregar, "Ninguno" por defecto; al editar, el objeto actual.
+- `RepositorioTrabajos`: `objeto_recibido_id` viaja en el `POST` solo si hay objeto, y en el `PATCH` solo si cambió (`null` lo quita). En `editar`, omitir `objetoId` deja el vínculo como está. El objeto debe estar en el mismo encargo (`OBJETO_NO_EN_ENCARGO`, como el backend). El dinero no cambia.
+- **Trabajos agrupados por objeto** (`agruparPorObjeto`): un subtítulo por objeto con trabajos, en el orden de Objetos recibidos, y **"Sin objeto"** al final. Sin vínculos, la lista se ve igual que antes.
+- **Un vínculo a un objeto que ya no está cuenta como "Sin objeto"** (opción a, decisión del usuario): es lo que hará el servidor al sincronizar.

@@ -17,12 +17,19 @@ abstract final class TiposTrabajo {
   static const eliminar = 'eliminar_trabajo';
 }
 
+/// Valor por defecto de `objetoId` en [RepositorioTrabajos.editar]: no
+/// tocar el vínculo (un `null` explícito lo quita).
+const _mismoObjeto = Object();
+
 /// Los trabajos de un encargo (S3b1). Cada escritura, en una transacción:
 /// el trabajo en Drift, el recálculo local del total y el saldo
 /// ([recalcularTotales]) y la operación en el Outbox.
 ///
 /// Un encargo entregado o cancelado no cambia sus trabajos (decisión del
 /// usuario); el backend lo permitiría, la app no.
+///
+/// Un trabajo puede vincularse a un objeto recibido del mismo encargo (S3d2,
+/// Caso 6); el vínculo solo viaja si hay uno o si cambió.
 class RepositorioTrabajos {
   RepositorioTrabajos({
     required this._base,
@@ -47,7 +54,11 @@ class RepositorioTrabajos {
 
   /// Desde el catálogo: se copian nombre y precio (Doc 2, regla 12) y al
   /// servidor solo viaja el `servicio_id`, que él copia igual.
-  Future<Trabajo> agregarDelCatalogo(String encargoId, Servicio servicio) async {
+  Future<Trabajo> agregarDelCatalogo(
+    String encargoId,
+    Servicio servicio, {
+    String? objetoId,
+  }) async {
     if (!servicio.activo) {
       throw const ValorInvalido(
         'SERVICIO_NO_DISPONIBLE',
@@ -60,10 +71,11 @@ class RepositorioTrabajos {
         id: id,
         encargoId: encargoId,
         servicioId: servicio.id,
+        objetoRecibidoId: objetoId,
         descripcion: servicio.nombre,
         precio: servicio.precio,
       ),
-      {'id': id, 'servicio_id': servicio.id},
+      {'id': id, 'servicio_id': servicio.id, 'objeto_recibido_id': ?objetoId},
     );
   }
 
@@ -71,18 +83,27 @@ class RepositorioTrabajos {
     String encargoId, {
     required String descripcion,
     required Monto precio,
+    String? objetoId,
   }) async {
     final limpia = ReglasTrabajo.validarDescripcion(descripcion);
     final valido = ReglasTrabajo.validarPrecio(precio);
     final id = _nuevoId();
     return _agregar(
-      Trabajo(id: id, encargoId: encargoId, servicioId: null, descripcion: limpia, precio: valido),
-      {'id': id, 'descripcion': limpia, 'precio': valido.soles},
+      Trabajo(
+        id: id,
+        encargoId: encargoId,
+        servicioId: null,
+        objetoRecibidoId: objetoId,
+        descripcion: limpia,
+        precio: valido,
+      ),
+      {'id': id, 'descripcion': limpia, 'precio': valido.soles, 'objeto_recibido_id': ?objetoId},
     );
   }
 
   Future<Trabajo> _agregar(Trabajo trabajo, Json cuerpo) => _base.transaction(() async {
     await _comprobarAbierto(trabajo.encargoId);
+    await _comprobarObjeto(trabajo.encargoId, trabajo.objetoRecibidoId);
     await _base
         .into(_base.trabajos)
         .insert(
@@ -92,6 +113,7 @@ class RepositorioTrabajos {
             actualizadoEn: sinVersionDelServidor,
             encargoId: trabajo.encargoId,
             servicioId: Value(trabajo.servicioId),
+            objetoRecibidoId: Value(trabajo.objetoRecibidoId),
             descripcion: trabajo.descripcion,
             precio: trabajo.precio.centimos,
           ),
@@ -112,8 +134,14 @@ class RepositorioTrabajos {
 
   /// `PATCH` solo con lo que cambió; sin cambios no encola nada y devuelve
   /// `false`. En un trabajo del catálogo el precio no se toca (`422
-  /// TRABAJO_PRECIO_BLOQUEADO` en el backend).
-  Future<bool> editar(Trabajo actual, {required String descripcion, Monto? precio}) async {
+  /// TRABAJO_PRECIO_BLOQUEADO` en el backend). Sin `objetoId` el vínculo
+  /// queda como está; con `null` se quita.
+  Future<bool> editar(
+    Trabajo actual, {
+    required String descripcion,
+    Monto? precio,
+    Object? objetoId = _mismoObjeto,
+  }) async {
     final limpia = ReglasTrabajo.validarDescripcion(descripcion);
     if (precio != null && precio != actual.precio && actual.delCatalogo) {
       throw const ValorInvalido(
@@ -122,18 +150,26 @@ class RepositorioTrabajos {
       );
     }
     final nuevoPrecio = precio == null ? null : ReglasTrabajo.validarPrecio(precio);
+    final nuevoObjeto = identical(objetoId, _mismoObjeto)
+        ? actual.objetoRecibidoId
+        : objetoId as String?;
     final cuerpo = <String, Object?>{
       if (limpia != actual.descripcion) 'descripcion': limpia,
       if (nuevoPrecio != null && nuevoPrecio != actual.precio) 'precio': nuevoPrecio.soles,
+      if (nuevoObjeto != actual.objetoRecibidoId) 'objeto_recibido_id': nuevoObjeto,
     };
     if (cuerpo.isEmpty) return false;
     return _base.transaction(() async {
       await _comprobarAbierto(actual.encargoId);
+      if (nuevoObjeto != actual.objetoRecibidoId) {
+        await _comprobarObjeto(actual.encargoId, nuevoObjeto);
+      }
       final filas = await (_base.update(_base.trabajos)..where((t) => t.id.equals(actual.id)))
           .write(
             TrabajosCompanion(
               descripcion: Value(limpia),
               precio: Value((nuevoPrecio ?? actual.precio).centimos),
+              objetoRecibidoId: Value(nuevoObjeto),
             ),
           );
       if (filas == 0) throw StateError('No existe el trabajo ${actual.id}');
@@ -177,6 +213,18 @@ class RepositorioTrabajos {
         'ENCARGO_CERRADO',
         'Un encargo entregado o cancelado no cambia sus trabajos.',
       );
+    }
+  }
+
+  /// El objeto tiene que existir en este encargo (`422
+  /// OBJETO_NO_EN_ENCARGO` en el backend).
+  Future<void> _comprobarObjeto(String encargoId, String? objetoId) async {
+    if (objetoId == null) return;
+    final objeto = await (_base.select(
+      _base.objetosRecibidos,
+    )..where((o) => o.id.equals(objetoId) & o.encargoId.equals(encargoId))).getSingleOrNull();
+    if (objeto == null) {
+      throw const ValorInvalido('OBJETO_NO_EN_ENCARGO', 'Ese objeto ya no está en el encargo.');
     }
   }
 

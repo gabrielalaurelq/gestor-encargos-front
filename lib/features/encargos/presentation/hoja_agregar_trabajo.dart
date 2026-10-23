@@ -9,13 +9,16 @@ import '../../../shared/presentation/widgets/campo_precio.dart';
 import '../../servicios/application/catalogo.dart';
 import '../../servicios/domain/servicio.dart';
 import '../application/encargos.dart';
+import '../domain/objeto_recibido.dart';
 import '../domain/trabajo.dart';
+import 'selector_objeto.dart';
 
 enum _Via { catalogo, personalizado }
 
 /// "Agregar trabajo" (PRD módulo 4): del catálogo, con un toque, o
 /// personalizado, con descripción y precio libres. Abre en "Del catálogo"
-/// cuando hay servicios activos.
+/// cuando hay servicios activos. Si el encargo tiene objetos, primero se
+/// elige para cuál es (S3d2); por defecto, ninguno.
 class HojaAgregarTrabajo extends ConsumerStatefulWidget {
   const HojaAgregarTrabajo({super.key, required this.encargoId});
 
@@ -36,6 +39,7 @@ class HojaAgregarTrabajo extends ConsumerStatefulWidget {
 
 class _EstadoHojaAgregarTrabajo extends ConsumerState<HojaAgregarTrabajo> {
   _Via? _elegida;
+  String? _objetoId;
   final _busqueda = TextEditingController();
   final _descripcion = TextEditingController();
   final _precio = TextEditingController();
@@ -66,7 +70,9 @@ class _EstadoHojaAgregarTrabajo extends ConsumerState<HojaAgregarTrabajo> {
   }
 
   Future<void> _agregarDelCatalogo(Servicio servicio) => _ejecutar(
-    () => ref.read(repositorioTrabajosProvider).agregarDelCatalogo(widget.encargoId, servicio),
+    () => ref
+        .read(repositorioTrabajosProvider)
+        .agregarDelCatalogo(widget.encargoId, servicio, objetoId: _objetoId),
     (mensaje) => _errorCatalogo = mensaje,
   );
 
@@ -95,7 +101,12 @@ class _EstadoHojaAgregarTrabajo extends ConsumerState<HojaAgregarTrabajo> {
     await _ejecutar(
       () => ref
           .read(repositorioTrabajosProvider)
-          .agregarPersonalizado(widget.encargoId, descripcion: descripcion!, precio: precio!),
+          .agregarPersonalizado(
+            widget.encargoId,
+            descripcion: descripcion!,
+            precio: precio!,
+            objetoId: _objetoId,
+          ),
       (mensaje) => _errorDescripcion = mensaje,
     );
   }
@@ -108,6 +119,7 @@ class _EstadoHojaAgregarTrabajo extends ConsumerState<HojaAgregarTrabajo> {
         if (servicio.activo) servicio,
     ];
     final via = _elegida ?? (activos.isEmpty ? _Via.personalizado : _Via.catalogo);
+    final objetos = ref.watch(objetosProvider(widget.encargoId)).value ?? const <ObjetoRecibido>[];
     final alto = MediaQuery.sizeOf(context).height;
 
     return Padding(
@@ -125,6 +137,14 @@ class _EstadoHojaAgregarTrabajo extends ConsumerState<HojaAgregarTrabajo> {
           children: [
             Text('Agregar trabajo', style: tema.textTheme.titleLarge),
             const SizedBox(height: Medidas.espacio),
+            if (objetos.isNotEmpty) ...[
+              SelectorObjeto(
+                objetos: objetos,
+                elegido: _objetoId,
+                alElegir: _guardando ? null : (id) => setState(() => _objetoId = id),
+              ),
+              const SizedBox(height: Medidas.espacio),
+            ],
             SegmentedButton<_Via>(
               segments: const [
                 ButtonSegment(value: _Via.catalogo, label: Text('Del catálogo')),
