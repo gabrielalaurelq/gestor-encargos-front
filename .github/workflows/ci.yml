@@ -1,7 +1,6 @@
 # Doc 3 Bloque 5 / Doc 7 Bloque 4 — Integración continua de la app. Corre en
 # cada Pull Request y en cada push a main: formato, análisis estático y tests.
-# Además, en main, un APK de staging para instalar en un teléfono de prueba
-# (docs/guia-validacion-telefono.md). El build del AAB y la distribución a
+# Además, en main, un APK para instalar en un teléfono de prueba (job `apk`). El build del AAB y la distribución a
 # Google Play son manuales y van aparte (Doc 3: nunca automáticos).
 name: CI
 
@@ -45,13 +44,18 @@ jobs:
       - name: Tests
         run: flutter test
 
-  # APK de staging: release apuntando al backend de Railway, firmado con la
-  # clave de debug fija (su SHA-1 está registrado en Firebase; NO es la clave
-  # de Google Play). Se salta hasta que existan la variable y los secretos.
-  apk-staging:
-    name: APK de staging
+  # APK para el teléfono de prueba (docs/guia-validacion-telefono.md), en dos
+# sabores según lo que exista en el repo:
+#   - staging: con el secreto GOOGLE_SERVICES_JSON_BASE64 y la variable
+#     API_URL_STAGING → login real contra el backend de Railway;
+#   - demo (si falta alguno): --dart-define=DEMO=true, sin login ni servidor;
+#     lo que se carga ahí nunca se sube.
+# Firmado con la clave de debug fija (su SHA-1 está en Firebase; NO es la de
+# Google Play), para que cada APK se instale encima del anterior.
+  apk:
+    name: APK de prueba
     needs: calidad
-    if: github.event_name != 'pull_request' && vars.API_URL_STAGING != ''
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,18 +71,29 @@ jobs:
           channel: stable
           cache: true
 
-      # Los secretos se escriben fuera del repo o en rutas ignoradas por git,
+      # Los secretos se escriben en rutas ignoradas por git o fuera del repo,
       # y el runner se descarta al terminar.
-      - name: Inyectar Firebase y la clave de firma
+      - name: Elegir sabor e inyectar secretos
+        id: sabor
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+          API_URL: ${{ vars.API_URL_STAGING }}
         run: |
-          test -n "$GOOGLE_SERVICES_JSON_BASE64" || { echo "Falta el secreto GOOGLE_SERVICES_JSON_BASE64"; exit 1; }
-          test -n "$DEBUG_KEYSTORE_BASE64" || { echo "Falta el secreto DEBUG_KEYSTORE_BASE64"; exit 1; }
-          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
-          mkdir -p ~/.android
-          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            mkdir -p ~/.android
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          fi
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ] && [ -n "$API_URL" ]; then
+            # Google Sign-In solo acepta la firma cuyo SHA-1 está en Firebase.
+            test -n "$DEBUG_KEYSTORE_BASE64" || { echo "::error::Falta el secreto DEBUG_KEYSTORE_BASE64"; exit 1; }
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
+            echo "nombre=staging" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Sin Firebase o sin API_URL_STAGING: se compila la demostración (sin login ni servidor)."
+            test -n "$DEBUG_KEYSTORE_BASE64" || echo "::warning::Sin DEBUG_KEYSTORE_BASE64: firma con una clave al azar; el próximo APK no se instalará encima."
+            echo "nombre=demo" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Instalar dependencias
         run: flutter pub get
@@ -88,17 +103,23 @@ jobs:
 
       - name: Compilar APK
         env:
+          SABOR: ${{ steps.sabor.outputs.nombre }}
           API_URL: ${{ vars.API_URL_STAGING }}
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
         run: |
-          args=(--release --dart-define=API_URL="$API_URL")
-          if [ -n "$GOOGLE_WEB_CLIENT_ID" ]; then
-            args+=(--dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID")
+          args=(--release --build-number=${{ github.run_number }})
+          if [ "$SABOR" = demo ]; then
+            args+=(--dart-define=DEMO=true)
+          else
+            args+=(--dart-define=API_URL="$API_URL")
+            if [ -n "$GOOGLE_WEB_CLIENT_ID" ]; then
+              args+=(--dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID")
+            fi
           fi
-          flutter build apk "${args[@]}" --build-number=${{ github.run_number }}
+          flutter build apk "${args[@]}"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: gestor-encargos-staging-${{ github.run_number }}
+          name: gestor-encargos-${{ steps.sabor.outputs.nombre }}-${{ github.run_number }}
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14

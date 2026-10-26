@@ -105,7 +105,7 @@ void main() {
     expect(agregarObjeto, findsOneWidget);
     expect(
       tester.getTopLeft(find.text('Objetos recibidos')).dy,
-      lessThan(tester.getTopLeft(find.text('Trabajos')).dy),
+      lessThan(tester.getTopLeft(find.text('Trabajos', skipOffstage: false)).dy),
     );
   });
 

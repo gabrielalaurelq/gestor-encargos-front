@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'demo/modo_demo.dart';
 import 'router/router.dart';
 import 'shared/presentation/tema/tema.dart';
 import 'shared/sync/providers.dart';
@@ -48,6 +49,15 @@ class _GestorEncargosAppState extends ConsumerState<GestorEncargosApp> {
       locale: const Locale('es', 'PE'),
       supportedLocales: const [Locale('es', 'PE'), Locale('es')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      // Que nadie confunda la demostración con la app real: sus datos no
+      // se suben nunca.
+      builder: modoDemo
+          ? (context, hijo) => Banner(
+              message: 'DEMO',
+              location: BannerLocation.topEnd,
+              child: hijo ?? const SizedBox.shrink(),
+            )
+          : null,
     );
   }
 }
